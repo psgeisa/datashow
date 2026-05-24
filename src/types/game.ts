@@ -3,6 +3,7 @@
 // ============================================================
 
 export type GameStatus = 'waiting' | 'playing' | 'finished'
+export type RoomGamePhase = 'waiting' | 'choosing' | 'playing' | 'phase_end'
 
 export interface AvatarConfig {
   skinTone:   string
@@ -40,6 +41,9 @@ export interface Room {
   timer_seconds: number
   round_started_at: string | null
   created_at: string
+  current_phase: number
+  total_phases: number
+  game_phase: RoomGamePhase
 }
 
 // ── Jogador ─────────────────────────────────────────────────
@@ -110,16 +114,27 @@ export interface RoundResult {
   }[]
 }
 
+// ── Resultado de fase ───────────────────────────────────────
+export interface PhaseScore {
+  player_id: string
+  nickname: string
+  phase_score: number
+  total_score: number
+}
+
 // ── Eventos Broadcast do Supabase ───────────────────────────
 export type BroadcastPayload =
-  | { type: 'QUESTION_START';  data: { round: number; question: QuestionPublic; started_at: string; timer_seconds: number } }
-  | { type: 'ROUND_REVEAL';    data: RoundResult }
-  | { type: 'GAME_FINISHED';   data: { final_scores: Player[] } }
-  | { type: 'PLAYER_ANSWERED'; data: { player_id: string; nickname: string } }
-  | { type: 'ABILITY_USED';    data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
+  | { type: 'QUESTION_START';      data: { round: number; question: QuestionPublic; started_at: string; timer_seconds: number } }
+  | { type: 'ROUND_REVEAL';        data: RoundResult }
+  | { type: 'GAME_FINISHED';       data: { final_scores: Player[] } }
+  | { type: 'PLAYER_ANSWERED';     data: { player_id: string; nickname: string } }
+  | { type: 'ABILITY_USED';        data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
+  | { type: 'CHOOSING_CATEGORY';   data: { phase: number; chooser_player_id: string; chooser_nickname: string } }
+  | { type: 'CATEGORY_CHOSEN';     data: { phase: number; category: QuestionCategory; category_name: string } }
+  | { type: 'PHASE_END';           data: { completed_phase: number; player_scores: PhaseScore[] } }
 
 // ── Estado local do jogo (client-side) ──────────────────────
-export type GamePhase = 'lobby' | 'countdown' | 'question' | 'reveal' | 'leaderboard' | 'finished'
+export type GamePhase = 'lobby' | 'choosing_category' | 'question' | 'reveal' | 'phase_end' | 'finished'
 
 export interface GameState {
   room: Room | null
@@ -130,10 +145,16 @@ export interface GameState {
   timeLeft: number
   roundResult: RoundResult | null
   answeredThisRound: boolean
-  playersAnswered: string[]        // IDs dos jogadores que já responderam
-  eliminatedOptions: number[]      // habilidade data_scientist
-  peekData: Record<number, number> // habilidade bi_analyst
-  doubleActive: boolean            // habilidade ml_engineer
+  playersAnswered: string[]
+  eliminatedOptions: number[]
+  peekData: Record<number, number>
+  doubleActive: boolean
+  // Fase
+  currentFase: number
+  chooserPlayerId: string
+  phaseScores: PhaseScore[]
+  completedPhase: number
+  pendingPhaseSetup: { phase: number; category: QuestionCategory; category_name: string } | null
 }
 
 // ── Resultado de pontuação ───────────────────────────────────
@@ -144,3 +165,12 @@ export interface ScoreResult {
   new_multiplier: number
   breakdown: string[]
 }
+
+// ── Categorias jogáveis ──────────────────────────────────────
+export const CHOOSABLE_CATEGORIES: { id: QuestionCategory; name: string; emoji: string; color: string; min_questions: number }[] = [
+  { id: 'ml',       name: 'Machine Learning & DS',   emoji: '🤖', color: '#a855f7', min_questions: 10 },
+  { id: 'python',   name: 'Python & IA Generativa',  emoji: '🐍', color: '#3b82f6', min_questions: 10 },
+  { id: 'sql',      name: 'SQL & Banco de Dados',     emoji: '🗃️', color: '#00d4ff', min_questions: 10 },
+  { id: 'stats',    name: 'Estatística',              emoji: '📊', color: '#f59e0b', min_questions: 10 },
+  { id: 'data_eng', name: 'Engenharia de Dados',      emoji: '⚙️', color: '#10b981', min_questions: 10 },
+]

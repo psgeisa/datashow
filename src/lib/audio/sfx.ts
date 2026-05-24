@@ -13,7 +13,7 @@ export class SoundFX {
     this.volume = Math.max(0, Math.min(1, vol))
   }
 
-  // Plateia comemorando: ruído de torcida + tons ascendentes
+  // Torcida comemorando: ruído de multidão + palmas + "whooo" ascendente
   playCelebration() {
     try {
       const ctx = this.getCtx()
@@ -21,58 +21,90 @@ export class SoundFX {
       const t = ctx.currentTime
       const v = this.volume
 
-      // Ruído de torcida (band-pass centrado na frequência de voz humana)
-      const bufSize = Math.floor(ctx.sampleRate * 1.4)
-      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
-      const data = buf.getChannelData(0)
-      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
-      const src = ctx.createBufferSource()
-      src.buffer = buf
-      const bpf = ctx.createBiquadFilter()
-      bpf.type = 'bandpass'
-      bpf.frequency.setValueAtTime(300, t)
-      bpf.frequency.linearRampToValueAtTime(600, t + 0.2)
-      bpf.Q.value = 1.2
-      const g = ctx.createGain()
-      g.gain.setValueAtTime(0, t)
-      g.gain.linearRampToValueAtTime(v * 0.55, t + 0.08)
-      g.gain.setValueAtTime(v * 0.45, t + 0.9)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 1.4)
-      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
-      src.start(t); src.stop(t + 1.4)
+      // ── Ruído de multidão: múltiplas camadas de largura de banda diferente ──
+      const roarDuration = 2.2
+      const freqBands = [
+        { center: 400,  Q: 1.0, vol: 0.5 },
+        { center: 900,  Q: 1.2, vol: 0.4 },
+        { center: 1800, Q: 1.5, vol: 0.25 },
+        { center: 3200, Q: 2.0, vol: 0.15 },
+      ]
 
-      // Burst agudo de excitação (assobios e gritos altos)
-      const bufH = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.25), ctx.sampleRate)
-      const dh = bufH.getChannelData(0)
-      for (let i = 0; i < dh.length; i++) dh[i] = Math.random() * 2 - 1
-      const srcH = ctx.createBufferSource()
-      srcH.buffer = bufH
-      const hpf = ctx.createBiquadFilter()
-      hpf.type = 'highpass'; hpf.frequency.value = 2500
-      const gH = ctx.createGain()
-      gH.gain.setValueAtTime(v * 0.2, t)
-      gH.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
-      srcH.connect(hpf); hpf.connect(gH); gH.connect(ctx.destination)
-      srcH.start(t); srcH.stop(t + 0.25)
+      for (const band of freqBands) {
+        const bufSize = Math.floor(ctx.sampleRate * roarDuration)
+        const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+        const data = buf.getChannelData(0)
+        for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
+        const src = ctx.createBufferSource()
+        src.buffer = buf
+        const bpf = ctx.createBiquadFilter()
+        bpf.type = 'bandpass'
+        bpf.frequency.value = band.center
+        bpf.Q.value = band.Q
+        const g = ctx.createGain()
+        // Ataque rápido, sustain, decaimento lento
+        g.gain.setValueAtTime(0, t)
+        g.gain.linearRampToValueAtTime(v * band.vol, t + 0.06)
+        g.gain.setValueAtTime(v * band.vol * 0.85, t + 0.8)
+        g.gain.exponentialRampToValueAtTime(0.001, t + roarDuration)
+        src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
+        src.start(t); src.stop(t + roarDuration)
+      }
 
-      // "Whoooo" — múltiplas vozes ascendentes em coro
-      ;[200, 250, 310, 390].forEach((freq, i) => {
+      // ── Palmas: rajadas de ruído curtas e repetidas ───────────────────────
+      for (let i = 0; i < 8; i++) {
+        const delay = i * 0.11 + (Math.random() * 0.04)
+        const clapBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate)
+        const cd = clapBuf.getChannelData(0)
+        for (let j = 0; j < cd.length; j++) cd[j] = Math.random() * 2 - 1
+        const cSrc = ctx.createBufferSource()
+        cSrc.buffer = clapBuf
+        const hpf = ctx.createBiquadFilter()
+        hpf.type = 'highpass'; hpf.frequency.value = 1500
+        const cg = ctx.createGain()
+        cg.gain.setValueAtTime(v * 0.35, t + delay)
+        cg.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.05)
+        cSrc.connect(hpf); hpf.connect(cg); cg.connect(ctx.destination)
+        cSrc.start(t + delay); cSrc.stop(t + delay + 0.05)
+      }
+
+      // ── "Whoooo" ascendente: coro de vozes subindo ───────────────────────
+      const whooFreqs = [180, 220, 260, 310, 370]
+      whooFreqs.forEach((freq, i) => {
         const osc = ctx.createOscillator()
         const og = ctx.createGain()
         osc.type = 'sine'
-        osc.frequency.setValueAtTime(freq, t + i * 0.04)
-        osc.frequency.linearRampToValueAtTime(freq * 1.2, t + 0.6)
-        og.gain.setValueAtTime(0, t + i * 0.04)
-        og.gain.linearRampToValueAtTime(v * 0.1, t + i * 0.04 + 0.06)
-        og.gain.setValueAtTime(v * 0.1, t + 0.7)
-        og.gain.exponentialRampToValueAtTime(0.001, t + 1.1)
+        const startTime = t + i * 0.03
+        osc.frequency.setValueAtTime(freq, startTime)
+        osc.frequency.linearRampToValueAtTime(freq * 1.5, startTime + 0.7)
+        osc.frequency.setValueAtTime(freq * 1.5, startTime + 0.7)
+        osc.frequency.linearRampToValueAtTime(freq * 1.3, startTime + 1.2)
+        og.gain.setValueAtTime(0, startTime)
+        og.gain.linearRampToValueAtTime(v * 0.12, startTime + 0.08)
+        og.gain.setValueAtTime(v * 0.10, startTime + 0.9)
+        og.gain.exponentialRampToValueAtTime(0.001, startTime + 1.4)
         osc.connect(og); og.connect(ctx.destination)
-        osc.start(t + i * 0.04); osc.stop(t + 1.1)
+        osc.start(startTime); osc.stop(startTime + 1.4)
+      })
+
+      // ── Acorde de vitória: sino brilhante ────────────────────────────────
+      const victoryNotes = [523.25, 659.25, 783.99, 1046.5] // C5 E5 G5 C6
+      victoryNotes.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const og = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        const noteT = t + i * 0.06
+        og.gain.setValueAtTime(0, noteT)
+        og.gain.linearRampToValueAtTime(v * 0.18, noteT + 0.01)
+        og.gain.exponentialRampToValueAtTime(0.001, noteT + 0.6)
+        osc.connect(og); og.connect(ctx.destination)
+        osc.start(noteT); osc.stop(noteT + 0.6)
       })
     } catch {}
   }
 
-  // Plateia vaiando: ruído grave descendente + múltiplos "boooo"
+  // Plateia vaiando: rumor grave descendente + "boooo"
   playWrong() {
     try {
       const ctx = this.getCtx()
@@ -80,7 +112,7 @@ export class SoundFX {
       const t = ctx.currentTime
       const v = this.volume
 
-      // Rumor grave da plateia
+      // Rumor grave
       const bufSize = Math.floor(ctx.sampleRate * 1.0)
       const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
       const data = buf.getChannelData(0)
@@ -98,7 +130,7 @@ export class SoundFX {
       src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
       src.start(t); src.stop(t + 1.0)
 
-      // Vozes "boooo" descendentes em uníssono
+      // Vozes "boooo" descendentes
       ;[120, 100, 140, 90].forEach((pitch, i) => {
         const osc = ctx.createOscillator()
         const lp = ctx.createBiquadFilter()
