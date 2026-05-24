@@ -278,8 +278,29 @@ export default function PlayPage() {
           />
 
           {answeredThisRound && (
-            <div className="text-center text-gray-400 text-sm animate-pulse">
-              Aguardando os outros jogadores...
+            <div className="space-y-3">
+              <p className="text-center text-gray-500 text-xs font-medium tracking-widest uppercase">
+                Aguardando
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {players.map(p => {
+                  const done = playersAnswered.includes(p.id)
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-500"
+                      style={{
+                        background: done ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${done ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                        color: done ? '#4ade80' : '#6b7280',
+                      }}
+                    >
+                      <span className={done ? '' : 'animate-pulse'}>{done ? '✅' : '⏳'}</span>
+                      <span className="truncate">{p.nickname}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
