@@ -11,6 +11,7 @@ import { AbilityButton } from '@/components/game/AbilityButton'
 import { ComboDisplay } from '@/components/game/ComboDisplay'
 import { SettingsButton } from '@/components/ui/SettingsModal'
 import { MusicEngine } from '@/lib/audio/music'
+import { SoundFX } from '@/lib/audio/sfx'
 import { getCharacter } from '@/lib/game/characters'
 
 export default function PlayPage() {
@@ -27,21 +28,52 @@ export default function PlayPage() {
   const myChar = getCharacter(myPlayer?.character_slug)
   const { effectiveVolume } = useSettings()
 
-  // Motor de música — criado uma única vez por montagem
   const musicRef = useRef<MusicEngine | null>(null)
   useEffect(() => {
     musicRef.current = new MusicEngine()
-    musicRef.current.start()
     return () => { musicRef.current?.destroy(); musicRef.current = null }
   }, [])
 
-  // Atualizar volume quando settings mudar
-  useEffect(() => { musicRef.current?.setVolume(effectiveVolume) }, [effectiveVolume])
+  const sfxRef = useRef<SoundFX | null>(null)
+  useEffect(() => {
+    sfxRef.current = new SoundFX()
+    return () => { sfxRef.current?.destroy(); sfxRef.current = null }
+  }, [])
 
-  // Atualizar urgência da música conforme timer
+  useEffect(() => { musicRef.current?.setVolume(effectiveVolume) }, [effectiveVolume])
+  useEffect(() => { sfxRef.current?.setVolume(effectiveVolume) }, [effectiveVolume])
+
+  // Música toca apenas durante a pergunta
+  useEffect(() => {
+    if (phase === 'question') musicRef.current?.start()
+    else musicRef.current?.stop()
+  }, [phase])
+
+  // Urgência do BPM conforme timer
   useEffect(() => {
     if (room) musicRef.current?.setUrgency(timeLeft, room.timer_seconds)
   }, [timeLeft])
+
+  // SFX: tempo esgotado
+  const timeUpPlayedRef = useRef(false)
+  useEffect(() => {
+    if (phase !== 'question') { timeUpPlayedRef.current = false; return }
+    if (timeLeft === 0 && !timeUpPlayedRef.current) {
+      timeUpPlayedRef.current = true
+      sfxRef.current?.playTimeUp()
+    }
+  }, [timeLeft, phase])
+
+  // SFX: correto / errado (dispara uma vez por rodada)
+  const sfxRoundRef = useRef(-1)
+  useEffect(() => {
+    if (phase !== 'reveal' || !roundResult || !room) return
+    if (sfxRoundRef.current === room.current_round) return
+    sfxRoundRef.current = room.current_round
+    const mine = roundResult.player_results.find(p => p.player_id === playerId)
+    if (mine?.is_correct) sfxRef.current?.playCelebration()
+    else sfxRef.current?.playWrong()
+  }, [phase, roundResult])
 
   // Guards para evitar disparos duplos
   const hostBroadcastedRef = useRef(false)
