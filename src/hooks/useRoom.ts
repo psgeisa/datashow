@@ -112,7 +112,9 @@ export function useRoom(roomCode: string, sessionId: string) {
       switch (event.type) {
         case 'QUESTION_START':
           setState(s => ({
-            ...s, phase: 'question',
+            ...s,
+            room: s.room ? { ...s.room, current_round: event.data.round } : s.room,
+            phase: 'question',
             currentQuestion: event.data.question,
             roundResult: null, answeredThisRound: false,
             playersAnswered: [], eliminatedOptions: [], peekData: {},
