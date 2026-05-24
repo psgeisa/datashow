@@ -13,7 +13,7 @@ export class SoundFX {
     this.volume = Math.max(0, Math.min(1, vol))
   }
 
-  // Arpejo ascendente + acorde sustentado + brilhos aleatórios
+  // Plateia comemorando: ruído de torcida + tons ascendentes
   playCelebration() {
     try {
       const ctx = this.getCtx()
@@ -21,51 +21,58 @@ export class SoundFX {
       const t = ctx.currentTime
       const v = this.volume
 
-      // C5 → E5 → G5 → C6
-      ;[523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-        const osc = ctx.createOscillator()
-        const g = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = freq
-        const s = t + i * 0.09
-        g.gain.setValueAtTime(0, s)
-        g.gain.linearRampToValueAtTime(v * 0.45, s + 0.02)
-        g.gain.exponentialRampToValueAtTime(0.001, s + 0.28)
-        osc.connect(g); g.connect(ctx.destination)
-        osc.start(s); osc.stop(s + 0.28)
-      })
+      // Ruído de torcida (band-pass centrado na frequência de voz humana)
+      const bufSize = Math.floor(ctx.sampleRate * 1.4)
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+      const data = buf.getChannelData(0)
+      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      const bpf = ctx.createBiquadFilter()
+      bpf.type = 'bandpass'
+      bpf.frequency.setValueAtTime(300, t)
+      bpf.frequency.linearRampToValueAtTime(600, t + 0.2)
+      bpf.Q.value = 1.2
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0, t)
+      g.gain.linearRampToValueAtTime(v * 0.55, t + 0.08)
+      g.gain.setValueAtTime(v * 0.45, t + 0.9)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.4)
+      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
+      src.start(t); src.stop(t + 1.4)
 
-      // Acorde C major sustentado
-      ;[523.25, 659.25, 783.99].forEach(freq => {
-        const osc = ctx.createOscillator()
-        const g = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = freq
-        const s = t + 0.38
-        g.gain.setValueAtTime(0, s)
-        g.gain.linearRampToValueAtTime(v * 0.25, s + 0.05)
-        g.gain.setValueAtTime(v * 0.25, s + 0.45)
-        g.gain.exponentialRampToValueAtTime(0.001, s + 0.9)
-        osc.connect(g); g.connect(ctx.destination)
-        osc.start(s); osc.stop(s + 0.9)
-      })
+      // Burst agudo de excitação (assobios e gritos altos)
+      const bufH = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.25), ctx.sampleRate)
+      const dh = bufH.getChannelData(0)
+      for (let i = 0; i < dh.length; i++) dh[i] = Math.random() * 2 - 1
+      const srcH = ctx.createBufferSource()
+      srcH.buffer = bufH
+      const hpf = ctx.createBiquadFilter()
+      hpf.type = 'highpass'; hpf.frequency.value = 2500
+      const gH = ctx.createGain()
+      gH.gain.setValueAtTime(v * 0.2, t)
+      gH.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
+      srcH.connect(hpf); hpf.connect(gH); gH.connect(ctx.destination)
+      srcH.start(t); srcH.stop(t + 0.25)
 
-      // Sparkle — notas altas aleatórias
-      for (let i = 0; i < 5; i++) {
+      // "Whoooo" — múltiplas vozes ascendentes em coro
+      ;[200, 250, 310, 390].forEach((freq, i) => {
         const osc = ctx.createOscillator()
-        const g = ctx.createGain()
+        const og = ctx.createGain()
         osc.type = 'sine'
-        osc.frequency.value = 1800 + Math.random() * 2400
-        const s = t + 0.25 + Math.random() * 0.6
-        g.gain.setValueAtTime(v * 0.15, s)
-        g.gain.exponentialRampToValueAtTime(0.001, s + 0.08)
-        osc.connect(g); g.connect(ctx.destination)
-        osc.start(s); osc.stop(s + 0.08)
-      }
+        osc.frequency.setValueAtTime(freq, t + i * 0.04)
+        osc.frequency.linearRampToValueAtTime(freq * 1.2, t + 0.6)
+        og.gain.setValueAtTime(0, t + i * 0.04)
+        og.gain.linearRampToValueAtTime(v * 0.1, t + i * 0.04 + 0.06)
+        og.gain.setValueAtTime(v * 0.1, t + 0.7)
+        og.gain.exponentialRampToValueAtTime(0.001, t + 1.1)
+        osc.connect(og); og.connect(ctx.destination)
+        osc.start(t + i * 0.04); osc.stop(t + 1.1)
+      })
     } catch {}
   }
 
-  // "Wah" descendente (trombone sintético) + ruído de plateia ("uuuh")
+  // Plateia vaiando: ruído grave descendente + múltiplos "boooo"
   playWrong() {
     try {
       const ctx = this.getCtx()
@@ -73,38 +80,42 @@ export class SoundFX {
       const t = ctx.currentTime
       const v = this.volume
 
-      const osc = ctx.createOscillator()
-      const filt = ctx.createBiquadFilter()
-      const g = ctx.createGain()
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(320, t)
-      osc.frequency.exponentialRampToValueAtTime(90, t + 0.75)
-      filt.type = 'lowpass'
-      filt.frequency.setValueAtTime(700, t)
-      filt.frequency.exponentialRampToValueAtTime(180, t + 0.75)
-      g.gain.setValueAtTime(v * 0.38, t)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.75)
-      osc.connect(filt); filt.connect(g); g.connect(ctx.destination)
-      osc.start(t); osc.stop(t + 0.75)
-
-      // Ruído bandpass — murmúrio de plateia
-      const bufSize = Math.floor(ctx.sampleRate * 0.55)
+      // Rumor grave da plateia
+      const bufSize = Math.floor(ctx.sampleRate * 1.0)
       const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
       const data = buf.getChannelData(0)
       for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
       const src = ctx.createBufferSource()
       src.buffer = buf
-      const nf = ctx.createBiquadFilter()
-      nf.type = 'bandpass'; nf.frequency.value = 280; nf.Q.value = 1.8
-      const ng = ctx.createGain()
-      ng.gain.setValueAtTime(v * 0.12, t)
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.55)
-      src.connect(nf); nf.connect(ng); ng.connect(ctx.destination)
-      src.start(t); src.stop(t + 0.55)
+      const bpf = ctx.createBiquadFilter()
+      bpf.type = 'bandpass'
+      bpf.frequency.setValueAtTime(220, t)
+      bpf.frequency.exponentialRampToValueAtTime(110, t + 0.9)
+      bpf.Q.value = 2.5
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(v * 0.45, t)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 1.0)
+      src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
+      src.start(t); src.stop(t + 1.0)
+
+      // Vozes "boooo" descendentes em uníssono
+      ;[120, 100, 140, 90].forEach((pitch, i) => {
+        const osc = ctx.createOscillator()
+        const lp = ctx.createBiquadFilter()
+        const og = ctx.createGain()
+        osc.type = 'sawtooth'
+        osc.frequency.setValueAtTime(pitch, t + i * 0.03)
+        osc.frequency.exponentialRampToValueAtTime(pitch * 0.55, t + 0.9)
+        lp.type = 'lowpass'; lp.frequency.value = 600
+        og.gain.setValueAtTime(v * 0.1, t + i * 0.03)
+        og.gain.exponentialRampToValueAtTime(0.001, t + 0.9)
+        osc.connect(lp); lp.connect(og); og.connect(ctx.destination)
+        osc.start(t + i * 0.03); osc.stop(t + 0.9)
+      })
     } catch {}
   }
 
-  // Dois buzzes curtos de "tempo esgotado"
+  // Dois buzzes de "tempo esgotado"
   playTimeUp() {
     try {
       const ctx = this.getCtx()
@@ -128,6 +139,6 @@ export class SoundFX {
   }
 
   destroy() {
-    this.ctx = null  // não fechar — contexto é compartilhado
+    this.ctx = null
   }
 }

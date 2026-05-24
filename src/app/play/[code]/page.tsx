@@ -74,7 +74,7 @@ export default function PlayPage() {
     synth.cancel()
 
     const utter = new SpeechSynthesisUtterance(currentQuestion.question)
-    utter.rate = 0.88
+    utter.rate = 1.25
     utter.pitch = 1.05
     utter.volume = 1
 
