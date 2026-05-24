@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getCharacter } from '@/lib/game/characters'
+import { AvatarSvg } from '@/components/game/AvatarSvg'
+import { DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
 import type { Player } from '@/types/game'
 
 const RANK_EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
@@ -75,8 +77,10 @@ export default function ResultsPage() {
                   borderColor: isMe ? char?.color ?? '#00d4ff' : undefined,
                 }}
               >
-                <span className="text-2xl w-8 text-center">{RANK_EMOJIS[i] ?? `${i+1}`}</span>
-                <span className="text-3xl">{char?.emoji ?? '❓'}</span>
+                <span className="text-2xl w-8 text-center">{RANK_EMOJIS[i] ?? `${i + 1}`}</span>
+                <div className="w-10 flex items-end justify-center">
+                  <AvatarSvg config={player.avatar_config ?? DEFAULT_AVATAR} size={36} />
+                </div>
                 <div className="flex-1">
                   <p className="font-bold">{player.nickname}{isMe ? ' (você)' : ''}</p>
                   <p className="text-xs text-gray-500">{char?.name ?? ''}</p>

@@ -4,7 +4,7 @@ import { generateRoomCode } from '@/lib/game/scoring'
 import { nanoid } from 'nanoid'
 
 export async function POST(req: NextRequest) {
-  const { nickname, character_slug } = await req.json()
+  const { nickname, character_slug, avatar_config } = await req.json()
 
   if (!nickname?.trim()) {
     return NextResponse.json({ error: 'Nickname obrigatório' }, { status: 400 })
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   const { data: player, error: playerErr } = await supabase
     .from('players')
-    .insert({ room_id: room.id, session_id, nickname: nickname.trim(), character_slug: character_slug ?? null })
+    .insert({ room_id: room.id, session_id, nickname: nickname.trim(), character_slug: character_slug ?? null, avatar_config: avatar_config ?? null })
     .select()
     .single()
 

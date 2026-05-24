@@ -2,7 +2,9 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CHARACTERS } from '@/lib/game/characters'
-import type { CharacterSlug } from '@/types/game'
+import { AvatarCustomizer, DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
+import { warmUpAudio } from '@/lib/audio/context'
+import type { CharacterSlug, AvatarConfig } from '@/types/game'
 
 function LobbyContent() {
   const router = useRouter()
@@ -10,23 +12,25 @@ function LobbyContent() {
   const mode = params.get('mode') as 'create' | 'join'
   const codeParam = params.get('code') ?? ''
 
-  const [nickname, setNickname] = useState('')
-  const [code, setCode] = useState(codeParam)
+  const [nickname, setNickname]     = useState('')
+  const [code, setCode]             = useState(codeParam)
   const [selectedChar, setSelectedChar] = useState<CharacterSlug | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [avatar, setAvatar]         = useState<AvatarConfig>(DEFAULT_AVATAR)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
 
   async function handleSubmit() {
     if (!nickname.trim()) { setError('Insira um nickname'); return }
     if (mode === 'join' && code.length !== 6) { setError('Código inválido'); return }
+    warmUpAudio()
     setLoading(true)
     setError('')
 
     try {
       const endpoint = mode === 'create' ? '/api/rooms/create' : '/api/rooms/join'
       const body = mode === 'create'
-        ? { nickname, character_slug: selectedChar }
-        : { code, nickname, character_slug: selectedChar }
+        ? { nickname, character_slug: selectedChar, avatar_config: avatar }
+        : { code, nickname, character_slug: selectedChar, avatar_config: avatar }
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -37,13 +41,12 @@ function LobbyContent() {
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'Erro'); setLoading(false); return }
 
-      // Salvar session_id localmente
       sessionStorage.setItem('session_id', data.session_id)
       sessionStorage.setItem('player_id', data.player.id)
       sessionStorage.setItem('room_code', data.room.code)
 
       router.push(`/room/${data.room.code}`)
-    } catch (e) {
+    } catch {
       setError('Erro de conexão')
       setLoading(false)
     }
@@ -54,7 +57,7 @@ function LobbyContent() {
       className="min-h-screen flex flex-col items-center justify-center p-4 text-white"
       style={{ background: 'radial-gradient(ellipse at 50% -10%, #0d0d3a 0%, #000000 65%)' }}
     >
-      <div className="w-full max-w-md space-y-6 animate-slide-up">
+      <div className="w-full max-w-md space-y-5 animate-slide-up">
         {/* Título */}
         <div className="text-center">
           <button onClick={() => router.push('/')} className="text-gray-500 text-sm mb-4 hover:text-gray-300 transition-colors">
@@ -65,7 +68,7 @@ function LobbyContent() {
           </h2>
         </div>
 
-        {/* Código da sala (apenas no modo join) */}
+        {/* Código da sala (join) */}
         {mode === 'join' && (
           <div>
             <label className="text-sm text-gray-400 mb-1.5 block">Código da Sala</label>
@@ -90,15 +93,24 @@ function LobbyContent() {
           />
         </div>
 
-        {/* Seleção de personagem */}
+        {/* Avatar */}
+        <div
+          className="p-4 rounded-2xl border border-white/10"
+          style={{ background: 'rgba(255,255,255,0.03)' }}
+        >
+          <label className="text-sm text-gray-400 mb-3 block font-medium">🎨 Seu Personagem</label>
+          <AvatarCustomizer value={avatar} onChange={setAvatar} />
+        </div>
+
+        {/* Habilidade */}
         <div>
-          <label className="text-sm text-gray-400 mb-3 block">Escolha seu Personagem</label>
-          <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm text-gray-400 mb-3 block">⚡ Escolha sua Habilidade</label>
+          <div className="grid grid-cols-2 gap-2">
             {CHARACTERS.map(char => (
               <button
                 key={char.slug}
                 onClick={() => setSelectedChar(char.slug)}
-                className={`p-4 rounded-2xl border text-left transition-all duration-200 hover:scale-[1.02] ${
+                className={`p-3 rounded-2xl border text-left transition-all duration-200 hover:scale-[1.02] ${
                   selectedChar === char.slug ? 'border-2 scale-[1.02]' : 'border-white/10 hover:border-white/30'
                 }`}
                 style={selectedChar === char.slug ? {
@@ -106,14 +118,12 @@ function LobbyContent() {
                   background: `${char.color}15`,
                 } : { background: 'rgba(255,255,255,0.03)' }}
               >
-                <div className="text-3xl mb-1">{char.emoji}</div>
-                <div className="font-bold text-sm" style={{ color: selectedChar === char.slug ? char.color : 'white' }}>
+                <div className="font-bold text-sm mb-0.5" style={{ color: selectedChar === char.slug ? char.color : 'white' }}>
                   {char.name}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">{char.role}</div>
                 <div
-                  className="text-xs mt-2 px-2 py-1 rounded-full inline-block font-medium"
-                  style={{ background: `${char.color}15`, color: char.color }}
+                  className="text-xs px-2 py-0.5 rounded-full inline-block font-medium"
+                  style={{ background: `${char.color}18`, color: char.color }}
                 >
                   ⚡ {char.ability_name}
                 </div>

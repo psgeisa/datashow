@@ -4,6 +4,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CHARACTERS, getCharacter } from '@/lib/game/characters'
 import { warmUpAudio } from '@/lib/audio/context'
+import { AvatarSvg } from '@/components/game/AvatarSvg'
+import { DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
 import type { Player, Room } from '@/types/game'
 
 export default function WaitingRoom() {
@@ -74,22 +76,20 @@ export default function WaitingRoom() {
         {/* Jogadores */}
         <div className="space-y-3 mb-8">
           {players.map(player => {
-            const char = getCharacter(player.character_slug)
+            const char   = getCharacter(player.character_slug)
+            const config = player.avatar_config ?? DEFAULT_AVATAR
             return (
               <div
                 key={player.id}
                 className="flex items-center gap-4 p-4 rounded-2xl border border-white/10 bg-white/5 animate-slide-up"
               >
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                  style={{ background: `${char?.color ?? '#888'}20`, border: `2px solid ${char?.color ?? '#444'}` }}
-                >
-                  {char?.emoji ?? '❓'}
+                <div className="w-12 flex items-end justify-center">
+                  <AvatarSvg config={config} size={44} />
                 </div>
                 <div className="flex-1">
                   <p className="font-bold">{player.nickname}</p>
                   <p className="text-sm" style={{ color: char?.color ?? '#888' }}>
-                    {char?.name ?? 'Sem personagem'}
+                    {char?.name ?? 'Sem habilidade'}
                   </p>
                 </div>
                 {player.session_id === room?.host_session_id && (

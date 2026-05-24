@@ -3,6 +3,14 @@
 // ============================================================
 
 export type GameStatus = 'waiting' | 'playing' | 'finished'
+
+export interface AvatarConfig {
+  skinTone:   string
+  hairStyle:  'bald' | 'short' | 'long' | 'curly'
+  hairColor:  string
+  shirtColor: string
+  pantsColor: string
+}
 export type CharacterSlug = 'data_scientist' | 'data_engineer' | 'bi_analyst' | 'ml_engineer'
 export type QuestionCategory = 'sql' | 'python' | 'ml' | 'stats' | 'powerbi' | 'azure' | 'data_eng' | 'databricks' | 'meme'
 export type QuestionType = 'multiple_choice' | 'code' | 'debug' | 'chart' | 'meme'
@@ -47,6 +55,7 @@ export interface Player {
   ability_uses: number
   status: 'active' | 'disconnected'
   joined_at: string
+  avatar_config: AvatarConfig | null
 }
 
 // ── Pergunta (completa, só servidor) ────────────────────────

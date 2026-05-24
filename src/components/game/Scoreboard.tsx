@@ -1,5 +1,7 @@
 'use client'
 import { getCharacter } from '@/lib/game/characters'
+import { AvatarSvg } from './AvatarSvg'
+import { DEFAULT_AVATAR } from './AvatarCustomizer'
 import type { Player } from '@/types/game'
 
 interface Props {
@@ -16,22 +18,23 @@ export function Scoreboard({ players, myPlayerId }: Props) {
   return (
     <div className="space-y-2 w-full">
       {sorted.map((player, i) => {
-        const char = getCharacter(player.character_slug)
-        const isMe = player.id === myPlayerId
+        const char  = getCharacter(player.character_slug)
+        const config = player.avatar_config ?? DEFAULT_AVATAR
+        const isMe  = player.id === myPlayerId
 
         return (
           <div
             key={player.id}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-              isMe ? 'border-2' : 'border border-white/10'
-            }`}
+            className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isMe ? 'border-2' : 'border border-white/10'}`}
             style={{
-              background: isMe ? `${char?.color ?? '#00d4ff'}10` : 'rgba(255,255,255,0.03)',
-              borderColor: isMe ? (char?.color ?? '#00d4ff') : undefined,
+              background:   isMe ? `${char?.color ?? '#00d4ff'}10` : 'rgba(255,255,255,0.03)',
+              borderColor:  isMe ? (char?.color ?? '#00d4ff') : undefined,
             }}
           >
-            <span className="text-xl w-8 text-center">{RANK_EMOJIS[i] ?? `${i+1}`}</span>
-            <span className="text-xl">{char?.emoji ?? '❓'}</span>
+            <span className="text-xl w-8 text-center">{RANK_EMOJIS[i] ?? `${i + 1}`}</span>
+            <div className="w-8 flex items-end justify-center">
+              <AvatarSvg config={config} size={28} />
+            </div>
             <div className="flex-1 min-w-0">
               <p className={`font-bold truncate ${isMe ? 'text-white' : 'text-gray-300'}`}>
                 {player.nickname}{isMe && ' (você)'}
