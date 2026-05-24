@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const { data: room, error: roomErr } = await supabase
     .from('rooms')
-    .insert({ code, host_session_id: session_id })
+    .insert({ code, host_session_id: session_id, timer_seconds: 12 })
     .select()
     .single()
 

@@ -2,12 +2,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useRoom } from '@/hooks/useRoom'
+import { useSettings } from '@/hooks/useSettings'
 import { QuestionCard } from '@/components/game/QuestionCard'
 import { Timer } from '@/components/game/Timer'
 import { Scoreboard } from '@/components/game/Scoreboard'
 import { PlayerAvatar } from '@/components/game/PlayerAvatar'
 import { AbilityButton } from '@/components/game/AbilityButton'
 import { ComboDisplay } from '@/components/game/ComboDisplay'
+import { SettingsButton } from '@/components/ui/SettingsModal'
+import { MusicEngine } from '@/lib/audio/music'
 import { getCharacter } from '@/lib/game/characters'
 
 export default function PlayPage() {
@@ -22,6 +25,23 @@ export default function PlayPage() {
 
   const isHost = room?.host_session_id === sessionId
   const myChar = getCharacter(myPlayer?.character_slug)
+  const { effectiveVolume } = useSettings()
+
+  // Motor de música — criado uma única vez por montagem
+  const musicRef = useRef<MusicEngine | null>(null)
+  useEffect(() => {
+    musicRef.current = new MusicEngine()
+    musicRef.current.start()
+    return () => { musicRef.current?.destroy(); musicRef.current = null }
+  }, [])
+
+  // Atualizar volume quando settings mudar
+  useEffect(() => { musicRef.current?.setVolume(effectiveVolume) }, [effectiveVolume])
+
+  // Atualizar urgência da música conforme timer
+  useEffect(() => {
+    if (room) musicRef.current?.setUrgency(timeLeft, room.timer_seconds)
+  }, [timeLeft])
 
   // Guards para evitar disparos duplos
   const hostBroadcastedRef = useRef(false)
@@ -275,6 +295,8 @@ export default function PlayPage() {
           <p className="text-gray-400 animate-pulse">Aguardando o jogo iniciar...</p>
         </div>
       )}
+
+      <SettingsButton />
     </main>
   )
 }
