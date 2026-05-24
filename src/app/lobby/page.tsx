@@ -18,6 +18,7 @@ function LobbyContent() {
   const [avatar, setAvatar]         = useState<AvatarConfig>(DEFAULT_AVATAR)
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState('')
+  const [soundReady, setSoundReady] = useState(false)
 
   async function handleSubmit() {
     if (!nickname.trim()) { setError('Insira um nickname'); return }
@@ -131,6 +132,20 @@ function LobbyContent() {
             ))}
           </div>
         </div>
+
+        {/* Ativar som */}
+        <button
+          type="button"
+          onClick={() => { warmUpAudio(); setSoundReady(true) }}
+          className="w-full py-3 rounded-2xl font-bold text-sm transition-all duration-300"
+          style={{
+            background: soundReady ? 'rgba(34,197,94,0.15)' : 'rgba(0,212,255,0.08)',
+            border: `1px solid ${soundReady ? 'rgba(34,197,94,0.5)' : 'rgba(0,212,255,0.35)'}`,
+            color: soundReady ? '#4ade80' : '#00d4ff',
+          }}
+        >
+          {soundReady ? '✅ Som ativado — música e voz prontas!' : '🔊 Toque aqui para ativar som e voz'}
+        </button>
 
         {/* Erro */}
         {error && (

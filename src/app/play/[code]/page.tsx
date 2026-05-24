@@ -85,13 +85,16 @@ export default function PlayPage() {
       synth.speak(utter)
     }
 
-    if (synth.getVoices().length) {
-      pickVoiceAndSpeak()
-    } else {
-      synth.addEventListener('voiceschanged', pickVoiceAndSpeak, { once: true })
-    }
+    // Chrome: após cancel() é necessário delay antes do próximo speak()
+    const tid = setTimeout(() => {
+      if (synth.getVoices().length) {
+        pickVoiceAndSpeak()
+      } else {
+        synth.addEventListener('voiceschanged', pickVoiceAndSpeak, { once: true })
+      }
+    }, 120)
 
-    return () => { synth.cancel() }
+    return () => { clearTimeout(tid); synth.cancel() }
   }, [currentQuestion?.id, phase])
 
   // Cancela narrador ao silenciar
