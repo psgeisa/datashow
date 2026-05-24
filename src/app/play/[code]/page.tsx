@@ -11,6 +11,7 @@ import { AbilityButton } from '@/components/game/AbilityButton'
 import { ComboDisplay } from '@/components/game/ComboDisplay'
 import { SettingsButton } from '@/components/ui/SettingsModal'
 import { MusicEngine } from '@/lib/audio/music'
+import { warmUpAudio } from '@/lib/audio/context'
 import { SoundFX } from '@/lib/audio/sfx'
 import { getCharacter } from '@/lib/game/characters'
 
@@ -63,6 +64,42 @@ export default function PlayPage() {
       sfxRef.current?.playTimeUp()
     }
   }, [timeLeft, phase])
+
+  // Narrador: lê a pergunta quando a rodada começa
+  useEffect(() => {
+    if (phase !== 'question' || !currentQuestion || effectiveVolume === 0) return
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+
+    const synth = window.speechSynthesis
+    synth.cancel()
+
+    const utter = new SpeechSynthesisUtterance(currentQuestion.question)
+    utter.rate = 0.88
+    utter.pitch = 1.05
+    utter.volume = 1
+
+    function pickVoiceAndSpeak() {
+      const voices = synth.getVoices()
+      const pt = voices.find(v => v.lang === 'pt-BR') ?? voices.find(v => v.lang.startsWith('pt'))
+      if (pt) utter.voice = pt
+      synth.speak(utter)
+    }
+
+    if (synth.getVoices().length) {
+      pickVoiceAndSpeak()
+    } else {
+      synth.addEventListener('voiceschanged', pickVoiceAndSpeak, { once: true })
+    }
+
+    return () => { synth.cancel() }
+  }, [currentQuestion?.id, phase])
+
+  // Cancela narrador ao silenciar
+  useEffect(() => {
+    if (effectiveVolume === 0 && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+  }, [effectiveVolume])
 
   // SFX: correto / errado (dispara uma vez por rodada)
   const sfxRoundRef = useRef(-1)
@@ -344,8 +381,10 @@ export default function PlayPage() {
 
       {/* Fase: LOBBY (aguardando jogo começar) */}
       {phase === 'lobby' && (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-400 animate-pulse">Aguardando o jogo iniciar...</p>
+        <div className="flex-1 flex items-center justify-center" onClick={warmUpAudio}>
+          <p className="text-gray-400 animate-pulse cursor-pointer select-none">
+            Aguardando o jogo iniciar...
+          </p>
         </div>
       )}
 

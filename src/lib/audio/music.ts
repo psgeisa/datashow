@@ -1,5 +1,4 @@
-// Motor de música procedural usando Web Audio API
-// Sem arquivos externos — tudo gerado em tempo real
+import { getAudioCtx } from './context'
 
 const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD_S = 0.1
@@ -20,7 +19,7 @@ export class MusicEngine {
 
   private getCtx(): AudioContext {
     if (!this.ctx) {
-      this.ctx = new AudioContext()
+      this.ctx = getAudioCtx()
       this.masterGain = this.ctx.createGain()
       this.masterGain.gain.value = this.volume
       this.masterGain.connect(this.ctx.destination)
@@ -90,15 +89,15 @@ export class MusicEngine {
     }
   }
 
-  start() {
+  async start() {
     if (this.schedulerTimer) return
     try {
       const ctx = this.getCtx()
-      ctx.resume()
-      this.nextNoteTime = ctx.currentTime + 0.05
+      await ctx.resume()
+      this.nextNoteTime = ctx.currentTime + 0.1
       this.currentStep = 0
       this.schedulerTimer = setInterval(() => this.scheduler(), LOOKAHEAD_MS)
-    } catch { /* AudioContext bloqueado — aguarda gesto do usuário */ }
+    } catch {}
   }
 
   stop() {
@@ -121,7 +120,8 @@ export class MusicEngine {
 
   destroy() {
     this.stop()
-    this.ctx?.close()
-    this.ctx = null
+    this.masterGain?.disconnect()
+    this.masterGain = null
+    this.ctx = null  // não fechar — contexto é compartilhado
   }
 }

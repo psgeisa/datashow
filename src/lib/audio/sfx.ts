@@ -1,10 +1,11 @@
-// Efeitos sonoros procedurais para eventos do jogo
+import { getAudioCtx } from './context'
+
 export class SoundFX {
   private ctx: AudioContext | null = null
   private volume = 0.5
 
   private getCtx(): AudioContext {
-    if (!this.ctx) this.ctx = new AudioContext()
+    if (!this.ctx) this.ctx = getAudioCtx()
     return this.ctx
   }
 
@@ -127,7 +128,6 @@ export class SoundFX {
   }
 
   destroy() {
-    this.ctx?.close()
-    this.ctx = null
+    this.ctx = null  // não fechar — contexto é compartilhado
   }
 }

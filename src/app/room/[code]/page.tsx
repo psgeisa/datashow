@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CHARACTERS, getCharacter } from '@/lib/game/characters'
+import { warmUpAudio } from '@/lib/audio/context'
 import type { Player, Room } from '@/types/game'
 
 export default function WaitingRoom() {
@@ -41,6 +42,7 @@ export default function WaitingRoom() {
   }
 
   async function startGame() {
+    warmUpAudio()
     setStarting(true)
     const res = await fetch('/api/game/start', {
       method: 'POST',
@@ -124,7 +126,10 @@ export default function WaitingRoom() {
           </button>
         ) : (
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-400">
+            <div
+              onClick={warmUpAudio}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-400 cursor-pointer select-none"
+            >
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               Aguardando o host iniciar...
             </div>
