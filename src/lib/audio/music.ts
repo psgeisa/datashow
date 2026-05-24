@@ -53,7 +53,8 @@ export class MusicEngine {
   // ── Passo da faixa de pergunta ───────────────────────────────────────────
   private scheduleQuestion(step: number, time: number) {
     const ctx = this.getCtx()
-    if (!this.masterGain) return
+    const mg = this.masterGain
+    if (!mg) return
 
     if (KICK_PATTERN[step]) {
       const osc = ctx.createOscillator()
@@ -62,7 +63,7 @@ export class MusicEngine {
       osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.4)
       g.gain.setValueAtTime(1.2, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.4)
-      osc.connect(g); g.connect(this.masterGain)
+      osc.connect(g); g.connect(mg)
       osc.start(time); osc.stop(time + 0.4)
     }
 
@@ -78,7 +79,7 @@ export class MusicEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(0.25, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.04)
-      src.connect(filt); filt.connect(g); g.connect(this.masterGain)
+      src.connect(filt); filt.connect(g); g.connect(mg)
       src.start(time); src.stop(time + 0.04)
     }
 
@@ -92,7 +93,7 @@ export class MusicEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(0.5, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.18)
-      osc.connect(filt); filt.connect(g); g.connect(this.masterGain)
+      osc.connect(filt); filt.connect(g); g.connect(mg)
       osc.start(time); osc.stop(time + 0.18)
     }
   }
@@ -100,7 +101,8 @@ export class MusicEngine {
   // ── Passo da faixa de reveal (alegre) ────────────────────────────────────
   private scheduleReveal(step: number, time: number) {
     const ctx = this.getCtx()
-    if (!this.masterGain) return
+    const mg = this.masterGain
+    if (!mg) return
 
     // Kick leve na 1ª semicolcheia de cada tempo
     if (step % 4 === 0) {
@@ -110,7 +112,7 @@ export class MusicEngine {
       osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.25)
       g.gain.setValueAtTime(0.7, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.25)
-      osc.connect(g); g.connect(this.masterGain)
+      osc.connect(g); g.connect(mg)
       osc.start(time); osc.stop(time + 0.25)
     }
 
@@ -127,7 +129,7 @@ export class MusicEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(step % 2 === 0 ? 0.3 : 0.15, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.02)
-      src.connect(filt); filt.connect(g); g.connect(this.masterGain)
+      src.connect(filt); filt.connect(g); g.connect(mg)
       src.start(time); src.stop(time + 0.02)
     }
 
@@ -141,7 +143,7 @@ export class MusicEngine {
       g.gain.setValueAtTime(0, time)
       g.gain.linearRampToValueAtTime(0.35, time + 0.008)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.22)
-      osc.connect(g); g.connect(this.masterGain)
+      osc.connect(g); g.connect(mg)
       osc.start(time); osc.stop(time + 0.22)
 
       // Harmônico (oitava acima, suave)
@@ -152,7 +154,7 @@ export class MusicEngine {
       g2.gain.setValueAtTime(0, time)
       g2.gain.linearRampToValueAtTime(0.08, time + 0.008)
       g2.gain.exponentialRampToValueAtTime(0.001, time + 0.12)
-      osc2.connect(g2); g2.connect(this.masterGain)
+      osc2.connect(g2); g2.connect(mg)
       osc2.start(time); osc2.stop(time + 0.12)
     }
 
@@ -165,7 +167,7 @@ export class MusicEngine {
       const g = ctx.createGain()
       g.gain.setValueAtTime(0.4, time)
       g.gain.exponentialRampToValueAtTime(0.001, time + 0.2)
-      osc.connect(g); g.connect(this.masterGain)
+      osc.connect(g); g.connect(mg)
       osc.start(time); osc.stop(time + 0.2)
     }
 
@@ -180,7 +182,7 @@ export class MusicEngine {
         g.gain.setValueAtTime(0, time)
         g.gain.linearRampToValueAtTime(0.06, time + 0.02)
         g.gain.exponentialRampToValueAtTime(0.001, time + 0.45)
-        osc.connect(g); g.connect(this.masterGain)
+        osc.connect(g); g.connect(mg)
         osc.start(time); osc.stop(time + 0.45)
       })
     }
