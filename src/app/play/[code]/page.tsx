@@ -203,7 +203,7 @@ export default function PlayPage() {
           },
         })
       }
-    }, 4000)
+    }, 14000)
   }
 
   if (!room || !myPlayer) {
