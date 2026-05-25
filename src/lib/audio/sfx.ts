@@ -13,7 +13,7 @@ export class SoundFX {
     this.volume = Math.max(0, Math.min(1, vol))
   }
 
-  // Torcida comemorando: ruído de multidão + palmas + "whooo" ascendente
+  // Risos de alegria: "ha ha ha" + palmas + sino de vitória
   playCelebration() {
     try {
       const ctx = this.getCtx()
@@ -21,85 +21,82 @@ export class SoundFX {
       const t = ctx.currentTime
       const v = this.volume
 
-      // ── Ruído de multidão: múltiplas camadas de largura de banda diferente ──
-      const roarDuration = 2.2
-      const freqBands = [
-        { center: 400,  Q: 1.0, vol: 0.5 },
-        { center: 900,  Q: 1.2, vol: 0.4 },
-        { center: 1800, Q: 1.5, vol: 0.25 },
-        { center: 3200, Q: 2.0, vol: 0.15 },
+      // ── "Ha ha ha" — ruído periódico imitando gargalhadas ────────────────
+      // 6 "ha"s a cada 130ms em 4 camadas de formantes diferentes
+      const laughCount  = 6
+      const laughGap    = 0.13
+      const laughTotal  = laughCount * laughGap + 0.12
+      const laughVoices = [
+        { freq: 700,  Q: 3.5, vol: 0.55 },
+        { freq: 1050, Q: 3.0, vol: 0.40 },
+        { freq: 1400, Q: 2.5, vol: 0.28 },
+        { freq: 2200, Q: 2.0, vol: 0.18 },
       ]
-
-      for (const band of freqBands) {
-        const bufSize = Math.floor(ctx.sampleRate * roarDuration)
-        const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
-        const data = buf.getChannelData(0)
+      for (const voice of laughVoices) {
+        const bufSize = Math.floor(ctx.sampleRate * laughTotal)
+        const buf     = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+        const data    = buf.getChannelData(0)
         for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
         const src = ctx.createBufferSource()
         src.buffer = buf
         const bpf = ctx.createBiquadFilter()
-        bpf.type = 'bandpass'
-        bpf.frequency.value = band.center
-        bpf.Q.value = band.Q
+        bpf.type = 'bandpass'; bpf.frequency.value = voice.freq; bpf.Q.value = voice.Q
         const g = ctx.createGain()
-        // Ataque rápido, sustain, decaimento lento
         g.gain.setValueAtTime(0, t)
-        g.gain.linearRampToValueAtTime(v * band.vol, t + 0.06)
-        g.gain.setValueAtTime(v * band.vol * 0.85, t + 0.8)
-        g.gain.exponentialRampToValueAtTime(0.001, t + roarDuration)
+        for (let i = 0; i < laughCount; i++) {
+          const ht = t + i * laughGap
+          g.gain.setValueAtTime(0,            ht)
+          g.gain.linearRampToValueAtTime(v * voice.vol, ht + 0.018) // ataque rápido
+          g.gain.exponentialRampToValueAtTime(0.001,    ht + 0.105) // decaimento
+        }
         src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
-        src.start(t); src.stop(t + roarDuration)
+        src.start(t); src.stop(t + laughTotal)
       }
 
-      // ── Palmas: rajadas de ruído curtas e repetidas ───────────────────────
-      for (let i = 0; i < 8; i++) {
-        const delay = i * 0.11 + (Math.random() * 0.04)
-        const clapBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate)
-        const cd = clapBuf.getChannelData(0)
+      // ── Palmas leves em cima das gargalhadas ─────────────────────────────
+      for (let i = 0; i < 7; i++) {
+        const delay    = i * 0.125 + (i % 2 === 0 ? 0 : 0.03)
+        const clapBuf  = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.055), ctx.sampleRate)
+        const cd       = clapBuf.getChannelData(0)
         for (let j = 0; j < cd.length; j++) cd[j] = Math.random() * 2 - 1
-        const cSrc = ctx.createBufferSource()
-        cSrc.buffer = clapBuf
-        const hpf = ctx.createBiquadFilter()
-        hpf.type = 'highpass'; hpf.frequency.value = 1500
-        const cg = ctx.createGain()
-        cg.gain.setValueAtTime(v * 0.35, t + delay)
-        cg.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.05)
+        const cSrc     = ctx.createBufferSource()
+        cSrc.buffer    = clapBuf
+        const hpf      = ctx.createBiquadFilter()
+        hpf.type       = 'highpass'; hpf.frequency.value = 1800
+        const cg       = ctx.createGain()
+        cg.gain.setValueAtTime(v * 0.28, t + delay)
+        cg.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.055)
         cSrc.connect(hpf); hpf.connect(cg); cg.connect(ctx.destination)
-        cSrc.start(t + delay); cSrc.stop(t + delay + 0.05)
+        cSrc.start(t + delay); cSrc.stop(t + delay + 0.06)
       }
 
-      // ── "Whoooo" ascendente: coro de vozes subindo ───────────────────────
-      const whooFreqs = [180, 220, 260, 310, 370]
-      whooFreqs.forEach((freq, i) => {
+      // ── "Ahhhh!" ascendente depois das gargalhadas ───────────────────────
+      ;[200, 260, 320, 390].forEach((freq, i) => {
         const osc = ctx.createOscillator()
-        const og = ctx.createGain()
-        osc.type = 'sine'
-        const startTime = t + i * 0.03
-        osc.frequency.setValueAtTime(freq, startTime)
-        osc.frequency.linearRampToValueAtTime(freq * 1.5, startTime + 0.7)
-        osc.frequency.setValueAtTime(freq * 1.5, startTime + 0.7)
-        osc.frequency.linearRampToValueAtTime(freq * 1.3, startTime + 1.2)
-        og.gain.setValueAtTime(0, startTime)
-        og.gain.linearRampToValueAtTime(v * 0.12, startTime + 0.08)
-        og.gain.setValueAtTime(v * 0.10, startTime + 0.9)
-        og.gain.exponentialRampToValueAtTime(0.001, startTime + 1.4)
+        const og  = ctx.createGain()
+        osc.type  = 'sine'
+        const st  = t + laughCount * laughGap - 0.05 + i * 0.04
+        osc.frequency.setValueAtTime(freq,        st)
+        osc.frequency.linearRampToValueAtTime(freq * 1.45, st + 0.55)
+        og.gain.setValueAtTime(0,          st)
+        og.gain.linearRampToValueAtTime(v * 0.13, st + 0.09)
+        og.gain.exponentialRampToValueAtTime(0.001, st + 0.75)
         osc.connect(og); og.connect(ctx.destination)
-        osc.start(startTime); osc.stop(startTime + 1.4)
+        osc.start(st); osc.stop(st + 0.75)
       })
 
-      // ── Acorde de vitória: sino brilhante ────────────────────────────────
-      const victoryNotes = [523.25, 659.25, 783.99, 1046.5] // C5 E5 G5 C6
-      victoryNotes.forEach((freq, i) => {
-        const osc = ctx.createOscillator()
-        const og = ctx.createGain()
-        osc.type = 'sine'
+      // ── Sino de vitória ───────────────────────────────────────────────────
+      ;[523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+        const osc  = ctx.createOscillator()
+        const og   = ctx.createGain()
+        osc.type   = 'sine'
         osc.frequency.value = freq
-        const noteT = t + i * 0.06
-        og.gain.setValueAtTime(0, noteT)
-        og.gain.linearRampToValueAtTime(v * 0.18, noteT + 0.01)
-        og.gain.exponentialRampToValueAtTime(0.001, noteT + 0.6)
+        const noteT = t + i * 0.07
+        og.gain.setValueAtTime(0,          noteT)
+        og.gain.linearRampToValueAtTime(v * 0.20, noteT + 0.01)
+        og.gain.exponentialRampToValueAtTime(0.001, noteT + 0.65)
         osc.connect(og); og.connect(ctx.destination)
-        osc.start(noteT); osc.stop(noteT + 0.6)
+        osc.start(noteT); osc.stop(noteT + 0.65)
       })
     } catch {}
   }

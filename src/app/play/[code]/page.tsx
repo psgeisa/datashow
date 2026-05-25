@@ -579,17 +579,43 @@ export default function PlayPage() {
         {/* ── REVEAL ──────────────────────────────────────────────────────── */}
         {phase === 'reveal' && roundResult && currentQuestion && (
           <div className="space-y-4 animate-slide-up">
-            {/* Resultado */}
-            <div className="text-center py-3">
-              {myResult === 'correct' ? (
-                <h3 className="text-3xl font-black text-green-400" style={{ textShadow: '0 0 20px rgba(34,197,94,0.6)' }}>
-                  ✅ Correto!
-                </h3>
-              ) : (
-                <h3 className="text-3xl font-black text-red-400" style={{ textShadow: '0 0 20px rgba(239,68,68,0.6)' }}>
-                  ❌ Errou!
-                </h3>
-              )}
+
+            {/* ── MURAL DE REAÇÕES: todos os personagens lado a lado ────────── */}
+            <div
+              className="rounded-2xl py-4 px-3"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <div className="flex justify-center gap-4 flex-wrap">
+                {players.map(p => {
+                  const pr        = roundResult.player_results.find(r => r.player_id === p.id)
+                  const isCorrect = pr?.is_correct ?? false
+                  const pts       = pr?.points_earned ?? 0
+                  const isMe      = p.id === playerId
+                  return (
+                    <div key={p.id} className="flex flex-col items-center gap-1" style={{ minWidth: 62 }}>
+                      {/* Avatar com animação de reação */}
+                      <div className={isCorrect ? 'animate-correct' : 'animate-wrong'}>
+                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={52} />
+                      </div>
+                      {/* Emoji de reação */}
+                      <span className="text-xl" style={{ lineHeight: 1 }}>
+                        {isCorrect ? '😄' : '😢'}
+                      </span>
+                      {/* Nome */}
+                      <span
+                        className="text-xs font-bold text-center truncate"
+                        style={{ maxWidth: 72, color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.75)' }}
+                      >
+                        {p.nickname}{isMe ? ' ★' : ''}
+                      </span>
+                      {/* Pontos desta pergunta */}
+                      <span className={`text-sm font-black ${pts > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {pts > 0 ? `+${pts}` : '✗'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Resposta correta */}
@@ -601,31 +627,63 @@ export default function PlayPage() {
               )}
             </div>
 
-            {/* Pontos */}
-            {roundResult.player_results.filter(pr => pr.player_id === playerId).map(pr => (
-              <div key={pr.player_id} className="text-center">
-                <p className={`text-5xl font-black ${pr.points_earned > 0 ? 'text-cyan-400' : 'text-red-400'}`}
-                  style={{ textShadow: `0 0 25px ${pr.points_earned > 0 ? 'rgba(0,212,255,0.5)' : 'rgba(239,68,68,0.4)'}` }}>
-                  {pr.points_earned > 0 ? `+${pr.points_earned}` : pr.points_earned}
-                </p>
-                <p className="text-gray-500 text-sm mt-1">Combo: {pr.combo}x</p>
+            {/* Pontos desta pergunta — todos os jogadores */}
+            <div>
+              <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(201,162,39,0.75)' }}>
+                📊 Pontos desta pergunta
+              </p>
+              <div className="space-y-1.5">
+                {[...roundResult.player_results]
+                  .sort((a, b) => b.points_earned - a.points_earned)
+                  .map(pr => {
+                    const p = players.find(pl => pl.id === pr.player_id)
+                    return (
+                      <div
+                        key={pr.player_id}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+                        style={{
+                          background:   pr.player_id === playerId ? 'rgba(0,212,255,0.07)' : 'rgba(255,255,255,0.03)',
+                          border:       `1px solid ${pr.player_id === playerId ? '#00d4ff' : 'rgba(255,255,255,0.08)'}`,
+                        }}
+                      >
+                        <AvatarSvg config={p?.avatar_config ?? DEFAULT_AVATAR} size={22} />
+                        <span className="flex-1 text-sm font-semibold truncate">
+                          {pr.nickname}{pr.player_id === playerId ? ' (você)' : ''}
+                        </span>
+                        {pr.combo >= 2 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,107,53,0.2)', color: '#ff6b35' }}>
+                            🔥 Seq.{pr.combo}x
+                          </span>
+                        )}
+                        <span className={`font-black text-lg ${pr.points_earned > 0 ? 'text-cyan-300' : 'text-red-400'}`}>
+                          {pr.points_earned > 0 ? `+${pr.points_earned}` : pr.points_earned}
+                        </span>
+                      </div>
+                    )
+                  })}
               </div>
-            ))}
+            </div>
 
-            {/* Mini ranking inline */}
-            <div className="space-y-1.5">
-              {[...players].sort((a, b) => b.score - a.score).map((p, i) => {
-                const EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
-                return (
-                  <div key={p.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${p.id === playerId ? 'border-2' : 'border border-white/10'}`}
-                    style={{ background: p.id === playerId ? 'rgba(0,212,255,0.06)' : 'rgba(255,255,255,0.03)', borderColor: p.id === playerId ? '#00d4ff' : undefined }}>
-                    <span className="text-base w-6">{EMOJIS[i] ?? `${i+1}`}</span>
-                    <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
-                    <span className="flex-1 text-sm font-semibold">{p.nickname}</span>
-                    <span className="font-black text-cyan-300">{p.score.toLocaleString()}</span>
-                  </div>
-                )
-              })}
+            {/* Placar geral acumulado */}
+            <div>
+              <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(168,85,247,0.75)' }}>
+                🏆 Placar geral
+              </p>
+              <div className="space-y-1.5">
+                {[...players].sort((a, b) => b.score - a.score).map((p, i) => {
+                  const EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
+                  return (
+                    <div key={p.id}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${p.id === playerId ? 'border-2' : 'border border-white/10'}`}
+                      style={{ background: p.id === playerId ? 'rgba(168,85,247,0.06)' : 'rgba(255,255,255,0.03)', borderColor: p.id === playerId ? '#a855f7' : undefined }}>
+                      <span className="text-base w-6">{EMOJIS[i] ?? `${i+1}`}</span>
+                      <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
+                      <span className="flex-1 text-sm font-semibold">{p.nickname}</span>
+                      <span className="font-black text-purple-300">{p.score.toLocaleString()}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             <p className="text-center text-gray-600 text-xs animate-pulse">Próxima pergunta em breve...</p>

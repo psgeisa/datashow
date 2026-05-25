@@ -20,7 +20,7 @@ export function ComboDisplay({ combo, multiplier }: Props) {
       style={{ background: `${color}20`, border: `1px solid ${color}`, color }}
     >
       <span>🔥</span>
-      <span>COMBO {combo}x</span>
+      <span>SEQUÊNCIA {combo}x</span>
       {multiplier > 1 && <span className="text-xs opacity-80">×{multiplier}</span>}
     </div>
   )
