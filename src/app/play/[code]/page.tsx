@@ -11,6 +11,7 @@ import { SettingsButton } from '@/components/ui/SettingsModal'
 import { HostCharacter } from '@/components/game/HostCharacter'
 import type { HostPose } from '@/components/game/HostCharacter'
 import { AvatarSvg } from '@/components/game/AvatarSvg'
+import type { AvatarPose } from '@/components/game/AvatarSvg'
 import { DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
 import { MusicEngine } from '@/lib/audio/music'
 import { warmUpAudio } from '@/lib/audio/context'
@@ -72,6 +73,7 @@ export default function PlayPage() {
     peekData, doubleActive, currentFase, chooserPlayerId, phaseScores,
     completedPhase, pendingPhaseSetup,
     isPaused, pausedById, pausedByNickname,
+    playerAnswerReactions,
   } = state
 
   const isHost    = room?.host_session_id === sessionId
@@ -89,6 +91,9 @@ export default function PlayPage() {
   // ── Pontuação acumulada na fase atual ─────────────────────────────────────
   const phaseEarnedRef = useRef<Record<string, number>>({})
   const [phaseEarned,  setPhaseEarned]  = useState<Record<string, number>>({})
+
+  // ── Estágios de degradação (burro) por jogador ─────────────────────────────
+  const [playerDonkeyStages, setPlayerDonkeyStages] = useState<Record<string, 0|1|2|3|4>>({})
 
   // ── Áudio ──────────────────────────────────────────────────────────────────
   const musicRef = useRef<MusicEngine | null>(null)
@@ -177,13 +182,17 @@ export default function PlayPage() {
     setMyResult(isCorrect ? 'correct' : 'wrong')
 
     const reactions: Record<string, 'correct' | 'wrong'> = {}
+    const newDonkeyStages: Record<string, 0|1|2|3|4> = {}
     for (const pr of roundResult.player_results) {
       reactions[pr.player_id] = pr.is_correct ? 'correct' : 'wrong'
       phaseEarnedRef.current[pr.player_id] =
         (phaseEarnedRef.current[pr.player_id] ?? 0) + pr.points_earned
+      // Atualiza estágio do burro com base no wrong_streak
+      newDonkeyStages[pr.player_id] = Math.min(4, pr.wrong_streak ?? 0) as 0|1|2|3|4
     }
     setPlayerReactions(reactions)
     setPhaseEarned({ ...phaseEarnedRef.current })
+    setPlayerDonkeyStages(newDonkeyStages)
     setTimeout(() => setPlayerReactions({}), 2500)
   }, [phase, roundResult])
 
@@ -259,6 +268,8 @@ export default function PlayPage() {
   useEffect(() => { if (phase === 'finished') router.push(`/results/${code}`) }, [phase])
 
   // ── Ações ──────────────────────────────────────────────────────────────────
+  const ANSWER_REACTIONS: AvatarPose[] = ['satisfied', 'figuinha', 'answering', 'satisfied', 'figuinha']
+
   async function handleAnswer(index: number) {
     if (answeredThisRound || !room || !myPlayer) return
     const time_taken_ms = (room.timer_seconds - timeLeft) * 1000
@@ -267,7 +278,8 @@ export default function PlayPage() {
       body: JSON.stringify({ room_id: room.id, player_id: playerId, round_number: room.current_round, selected_index: index, time_taken_ms, ability_used: doubleActive ? 'double' : null }),
     })
     markAnswered(doubleActive ? 'double' : undefined)
-    broadcast({ type: 'PLAYER_ANSWERED', data: { player_id: playerId, nickname: myPlayer.nickname } })
+    const reaction = ANSWER_REACTIONS[Math.floor(Math.random() * ANSWER_REACTIONS.length)]
+    broadcast({ type: 'PLAYER_ANSWERED', data: { player_id: playerId, nickname: myPlayer.nickname, reaction_type: reaction } })
   }
 
   async function handleAbility() {
@@ -615,7 +627,7 @@ export default function PlayPage() {
                   playerReactions[p.id] === 'wrong'   ? 'animate-wrong'   :
                   playersAnswered.includes(p.id) && phase === 'question' ? 'opacity-100' : 'opacity-60'
                 }>
-                  <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={28} />
+                  <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={28} donkeyStage={playerDonkeyStages[p.id] ?? 0} />
                 </div>
                 {playersAnswered.includes(p.id) && phase === 'question' && (
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border border-black text-[6px] flex items-center justify-center">✓</div>
@@ -683,7 +695,12 @@ export default function PlayPage() {
                           border:      `1px solid ${done ? 'rgba(34,197,94,0.3)' : isMe ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
                         }}
                       >
-                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={26} pose={done ? 'answering' : 'idle'} />
+                        <AvatarSvg
+                  config={p.avatar_config ?? DEFAULT_AVATAR}
+                  size={26}
+                  pose={done ? ((playerAnswerReactions[p.id] as AvatarPose) ?? 'answering') : 'doubt'}
+                  donkeyStage={playerDonkeyStages[p.id] ?? 0}
+                />
                         <div className="flex-1 min-w-0">
                           <p className="truncate font-bold" style={{ color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.85)' }}>{p.nickname}</p>
                           <p className="text-gray-500">{p.score.toLocaleString()} pts</p>
@@ -728,6 +745,7 @@ export default function PlayPage() {
                           config={p.avatar_config ?? DEFAULT_AVATAR}
                           size={54}
                           pose={isCorrect ? 'correct' : 'clown'}
+                          donkeyStage={playerDonkeyStages[p.id] ?? 0}
                         />
                       </div>
                       {/* Placa de resposta errada */}

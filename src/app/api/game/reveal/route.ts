@@ -36,10 +36,10 @@ export async function POST(req: NextRequest) {
     .eq('room_id', room_id)
     .eq('round_number', round_number)
 
-  // Buscar estado atualizado dos jogadores
+  // Buscar estado atualizado dos jogadores (incluindo wrong_streak)
   const { data: players } = await supabase
     .from('players')
-    .select('id, nickname, character_slug, score, combo, multiplier')
+    .select('id, nickname, character_slug, score, combo, multiplier, wrong_streak')
     .eq('room_id', room_id)
 
   const player_results = (players ?? []).map(p => {
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       combo:          answer?.combo_at_time ?? 0,
       multiplier:     p.multiplier,
       selected_index: answer?.selected_index ?? null,
+      wrong_streak:   p.wrong_streak ?? 0,
     }
   })
 

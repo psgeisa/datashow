@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   // Buscar estado do jogador
   const { data: player } = await supabase
     .from('players')
-    .select('score, combo, multiplier, ability_uses')
+    .select('score, combo, multiplier, ability_uses, wrong_streak')
     .eq('id', player_id)
     .single()
 
@@ -76,11 +76,12 @@ export async function POST(req: NextRequest) {
     ability_used: ability_used ?? null,
   })
 
-  // Atualizar jogador (score, combo, multiplier, ability_uses)
+  // Atualizar jogador (score, combo, multiplier, ability_uses, wrong_streak)
   const updateData: any = {
     score: result.new_score,
     combo: result.new_combo,
     multiplier: result.new_multiplier,
+    wrong_streak: is_correct ? 0 : (player.wrong_streak ?? 0) + 1,
   }
   if (ability_used) updateData.ability_uses = player.ability_uses - 1
 

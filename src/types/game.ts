@@ -137,6 +137,7 @@ export interface RoundResult {
     combo: number
     multiplier: number
     selected_index: number | null
+    wrong_streak: number   // consecutive wrong answers (0 = just reset)
   }[]
 }
 
@@ -153,7 +154,7 @@ export type BroadcastPayload =
   | { type: 'QUESTION_START';  data: { round: number; question: QuestionPublic; started_at: string; timer_seconds: number } }
   | { type: 'ROUND_REVEAL';    data: RoundResult }
   | { type: 'GAME_FINISHED';   data: { final_scores: Player[] } }
-  | { type: 'PLAYER_ANSWERED'; data: { player_id: string; nickname: string } }
+  | { type: 'PLAYER_ANSWERED'; data: { player_id: string; nickname: string; reaction_type?: string } }
   | { type: 'ABILITY_USED';    data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
   | { type: 'CHOOSING_CATEGORY'; data: { phase: number; chooser_player_id: string; chooser_nickname: string } }
   | { type: 'CATEGORY_CHOSEN'; data: { phase: number; super_topic: QuestionSuperTopic; category_name: string } }
@@ -187,6 +188,8 @@ export interface GameState {
   isPaused: boolean
   pausedById: string
   pausedByNickname: string
+  // Reações de resposta (pose aleatória quando o player aperta o botão)
+  playerAnswerReactions: Record<string, string>
 }
 
 // ── Resultado de pontuação ───────────────────────────────────

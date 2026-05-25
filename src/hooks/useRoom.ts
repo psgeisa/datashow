@@ -11,6 +11,7 @@ const DEFAULT_STATE: GameState = {
   currentFase: 1, chooserPlayerId: '', phaseScores: [],
   completedPhase: 0, pendingPhaseSetup: null,
   isPaused: false, pausedById: '', pausedByNickname: '',
+  playerAnswerReactions: {},
 }
 
 export function useRoom(roomCode: string, sessionId: string) {
@@ -180,14 +181,21 @@ export function useRoom(roomCode: string, sessionId: string) {
             roundResult: null, answeredThisRound: false,
             playersAnswered: [], eliminatedOptions: [], peekData: {},
             doubleActive: false, pendingPhaseSetup: null,
-            isPaused: false,
+            isPaused: false, playerAnswerReactions: {},
           }))
           pausedRef.current = false
           startCountdown(event.data.timer_seconds)
           break
 
         case 'PLAYER_ANSWERED':
-          setState(s => ({ ...s, playersAnswered: [...s.playersAnswered, event.data.player_id] }))
+          setState(s => ({
+            ...s,
+            playersAnswered: [...s.playersAnswered, event.data.player_id],
+            playerAnswerReactions: {
+              ...s.playerAnswerReactions,
+              [event.data.player_id]: event.data.reaction_type ?? 'answering',
+            },
+          }))
           break
 
         case 'ABILITY_USED':
