@@ -22,9 +22,8 @@ interface Props {
  * Personagem chibi com sistema de degradação por erros consecutivos:
  *   donkeyStage 0 → personagem normal
  *   donkeyStage 1 → + nariz vermelho
- *   donkeyStage 2 → + orelhas de burro
- *   donkeyStage 3 → + rabo de burro
- *   donkeyStage 4 → vira o burro completo (usando cores do avatar)
+ *   donkeyStage 2 → + orelhas de burro (cinza de burro)
+ *   donkeyStage 3+ → vira o burro completo (mantém cores do avatar)
  *
  * Poses extras:
  *   doubt     → olhos pensativos + balão "?" (enquanto não respondeu)
@@ -34,8 +33,8 @@ interface Props {
 export function AvatarSvg({ config, size = 64, pose = 'idle', donkeyStage = 0 }: Props) {
   const { skinTone, hairStyle, hairColor, shirtColor, pantsColor } = config
 
-  // ─── Stage 4: transforma em burro completo ──────────────────────────────────
-  if (donkeyStage >= 4) {
+  // ─── Stage 3+: transforma em burro completo ────────────────────────────────
+  if (donkeyStage >= 3) {
     return <DonkeyAvatar config={config} size={size} />
   }
 
@@ -48,7 +47,6 @@ export function AvatarSvg({ config, size = 64, pose = 'idle', donkeyStage = 0 }:
 
   const showClownNose  = donkeyStage >= 1 || pose === 'clown'
   const showDonkeyEars = donkeyStage >= 2
-  const showDonkeyTail = donkeyStage >= 3
 
   return (
     <svg
@@ -59,19 +57,6 @@ export function AvatarSvg({ config, size = 64, pose = 'idle', donkeyStage = 0 }:
     >
       {/* Sombra no chão */}
       <ellipse cx="40" cy="106" rx="18" ry="3" fill="rgba(0,0,0,0.12)" />
-
-      {/* ─── Rabo de burro (Stage 3+, desenhado antes do corpo) ─────────────── */}
-      {showDonkeyTail && (
-        <>
-          <path
-            d="M 60,64 C 70,57 76,64 73,74 C 70,83 62,88 58,80"
-            stroke={hairColor} strokeWidth="4.5" strokeLinecap="round" fill="none"
-          />
-          {/* Ponta do rabo */}
-          <ellipse cx="57" cy="80" rx="5" ry="4" fill={hairColor} />
-          <ellipse cx="57" cy="80" rx="3" ry="2.5" fill={hairColor} opacity="0.7" />
-        </>
-      )}
 
       {/* ─── Pernas ─── */}
       <rect x="27" y="78" width="11" height="24" rx="5.5" fill={pantsColor} />
@@ -194,12 +179,12 @@ export function AvatarSvg({ config, size = 64, pose = 'idle', donkeyStage = 0 }:
       {/* ─── Orelhas de burro (Stage 2+, desenhadas antes da cabeça) ──────────── */}
       {showDonkeyEars && (
         <>
-          {/* Orelha esquerda — longa e pontuda */}
-          <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill={skinTone} />
-          <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19" fill="rgba(255,160,160,0.5)" />
+          {/* Orelha esquerda — longa e pontuda, cinza de burro */}
+          <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill="#8a8fa8" />
+          <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19" fill="#c4a0a8" opacity="0.85" />
           {/* Orelha direita — espelho */}
-          <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill={skinTone} />
-          <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19" fill="rgba(255,160,160,0.5)" />
+          <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill="#8a8fa8" />
+          <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19" fill="#c4a0a8" opacity="0.85" />
         </>
       )}
 
@@ -446,12 +431,12 @@ function DonkeyAvatar({ config, size }: { config: AvatarConfig; size: number }) 
       <rect x="35" y="46" width="10" height="7" rx="3" fill={skinTone} />
 
       {/* ── Orelhas de burro longas (desenhadas ANTES da cabeça) ────────────── */}
-      {/* Esquerda */}
-      <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill={skinTone} />
-      <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19"    fill="rgba(255,150,150,0.5)" />
+      {/* Esquerda — cinza de burro */}
+      <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill="#8a8fa8" />
+      <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19"    fill="#c4a0a8" opacity="0.85" />
       {/* Direita */}
-      <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill={skinTone} />
-      <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19"    fill="rgba(255,150,150,0.5)" />
+      <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill="#8a8fa8" />
+      <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19"    fill="#c4a0a8" opacity="0.85" />
 
       {/* Cabeça */}
       <circle cx="40" cy="26" r="23" fill={skinTone} />

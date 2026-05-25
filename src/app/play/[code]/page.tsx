@@ -188,7 +188,7 @@ export default function PlayPage() {
       phaseEarnedRef.current[pr.player_id] =
         (phaseEarnedRef.current[pr.player_id] ?? 0) + pr.points_earned
       // Atualiza estágio do burro com base no wrong_streak
-      newDonkeyStages[pr.player_id] = Math.min(4, pr.wrong_streak ?? 0) as 0|1|2|3|4
+      newDonkeyStages[pr.player_id] = Math.min(3, pr.wrong_streak ?? 0) as 0|1|2|3|4
     }
     setPlayerReactions(reactions)
     setPhaseEarned({ ...phaseEarnedRef.current })
