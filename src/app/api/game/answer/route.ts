@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { calculatePoints } from '@/lib/game/scoring'
+import { shuffleOptionsForQuestion } from '@/lib/game/shuffleOptions'
 
 export async function POST(req: NextRequest) {
   const { room_id, player_id, round_number, selected_index, time_taken_ms, ability_used } = await req.json()
@@ -17,18 +18,21 @@ export async function POST(req: NextRequest) {
 
   if (existing) return NextResponse.json({ error: 'Já respondeu nesta rodada' }, { status: 409 })
 
-  // Buscar correct_index no servidor — nunca exposto ao client
+  // Buscar pergunta — nunca exposta ao client
   const { data: gq } = await supabase
     .from('game_questions')
-    .select('questions(correct_index, explanation)')
+    .select('questions(id, options, correct_index)')
     .eq('room_id', room_id)
     .eq('round_number', round_number)
     .single()
 
   if (!gq) return NextResponse.json({ error: 'Pergunta não encontrada' }, { status: 404 })
 
-  const correct_index = (gq.questions as any).correct_index
-  const is_correct = typeof selected_index === 'number' && selected_index === correct_index
+  const q = gq.questions as any
+  // Apply the same deterministic shuffle as when the question was served to the client
+  const { correct_index: shuffledCorrectIndex } = shuffleOptionsForQuestion(q.id, q.options, q.correct_index)
+
+  const is_correct = typeof selected_index === 'number' && selected_index === shuffledCorrectIndex
 
   // Buscar estado do jogador
   const { data: player } = await supabase

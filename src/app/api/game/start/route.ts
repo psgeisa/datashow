@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { LOCAL_QUESTIONS } from '@/lib/game/questions'
+import { computeSuperTopic } from '@/lib/game/supertopics'
+
+// DB migration (run once in Supabase SQL editor):
+// ALTER TABLE questions ADD COLUMN IF NOT EXISTS super_topic TEXT DEFAULT 'machine_learning';
 
 export async function POST(req: NextRequest) {
   const { room_code, session_id } = await req.json()
@@ -23,15 +27,16 @@ export async function POST(req: NextRequest) {
     await supabase.from('questions').delete().eq('is_ai_generated', false)
     await supabase.from('questions').insert(
       LOCAL_QUESTIONS.map(q => ({
-        category: q.category,
-        difficulty: q.difficulty,
-        type: q.type,
-        question: q.question,
-        options: q.options,
+        category:     q.category,
+        difficulty:   q.difficulty,
+        type:         q.type,
+        question:     q.question,
+        options:      q.options,
         correct_index: q.correct_index,
-        explanation: q.explanation ?? null,
+        explanation:  q.explanation ?? null,
         code_snippet: q.code_snippet ?? null,
         meme_context: q.meme_context ?? null,
+        super_topic:  computeSuperTopic(q.category, q.question),
         is_ai_generated: false,
       }))
     )
@@ -56,6 +61,6 @@ export async function POST(req: NextRequest) {
     success: true,
     chooser: { player_id: chooser.id, nickname: chooser.nickname },
     phase: 1,
-    total_phases: room.total_phases ?? 3,
+    total_phases: room.total_phases ?? 4,
   })
 }

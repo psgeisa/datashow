@@ -10,18 +10,23 @@ const DEFAULT_STATE: GameState = {
   eliminatedOptions: [], peekData: {}, doubleActive: false,
   currentFase: 1, chooserPlayerId: '', phaseScores: [],
   completedPhase: 0, pendingPhaseSetup: null,
+  isPaused: false, pausedById: '', pausedByNickname: '',
 }
 
 export function useRoom(roomCode: string, sessionId: string) {
   const supabase = createClient()
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const channelRef      = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pausedRef       = useRef(false)           // sync ref for timer closure
+  const autoResumeRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [state, setState] = useState<GameState>(DEFAULT_STATE)
 
+  // ── Timer countdown (respects pause) ────────────────────────────────────
   const startCountdown = useCallback((seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current)
     setState(s => ({ ...s, timeLeft: seconds }))
     timerRef.current = setInterval(() => {
+      if (pausedRef.current) return   // do nothing while paused
       setState(s => {
         if (s.timeLeft <= 1) {
           clearInterval(timerRef.current!)
@@ -54,6 +59,7 @@ export function useRoom(roomCode: string, sessionId: string) {
       let gamePhase: GameState['phase'] = 'lobby'
       let currentQuestion: QuestionPublic | null = null
       let initialTime = room.timer_seconds
+      let answeredThisRound = false
 
       if (room.status === 'playing') {
         const gp = room.game_phase ?? 'choosing'
@@ -76,6 +82,18 @@ export function useRoom(roomCode: string, sessionId: string) {
               initialTime = Math.max(1, Math.floor(room.timer_seconds - elapsed))
             }
             gamePhase = 'question'
+
+            // ── F5 protection: check if player already answered this round ──
+            if (myPlayer) {
+              const { data: existingAnswer } = await supabase
+                .from('answers')
+                .select('id')
+                .eq('room_id', room.id)
+                .eq('player_id', myPlayer.id)
+                .eq('round_number', room.current_round)
+                .maybeSingle()
+              if (existingAnswer) answeredThisRound = true
+            }
           }
         }
       } else if (room.status === 'finished') {
@@ -88,12 +106,14 @@ export function useRoom(roomCode: string, sessionId: string) {
         timeLeft: currentQuestion ? initialTime : 0,
         currentFase: phase,
         chooserPlayerId: chooser?.id ?? '',
+        answeredThisRound,
       }))
 
       if (room.status === 'playing' && currentQuestion && room.host_session_id !== sessionId) {
         startCountdown(initialTime)
       }
 
+      // ── Postgres realtime (player updates) ─────────────────────────────
       playersSub = supabase
         .channel(`players:${room.id}`)
         .on('postgres_changes', {
@@ -115,11 +135,11 @@ export function useRoom(roomCode: string, sessionId: string) {
         })
         .subscribe()
 
+      // ── Broadcast channel ───────────────────────────────────────────────
       const channel = supabase.channel(`game:${roomCode}`, {
         config: { broadcast: { self: true } },
       })
       channelRef.current = channel
-
       channel.on('broadcast', { event: 'GAME_EVENT' }, ({ payload }: { payload: BroadcastPayload }) => {
         handleEvent(payload)
       }).subscribe()
@@ -141,23 +161,28 @@ export function useRoom(roomCode: string, sessionId: string) {
           break
 
         case 'CATEGORY_CHOSEN':
-          // Host will call API and then broadcast QUESTION_START
           setState(s => ({
             ...s,
-            pendingPhaseSetup: { phase: event.data.phase, category: event.data.category, category_name: event.data.category_name },
+            pendingPhaseSetup: {
+              phase: event.data.phase,
+              super_topic: event.data.super_topic,
+              category_name: event.data.category_name,
+            },
           }))
           break
 
         case 'QUESTION_START':
           setState(s => ({
             ...s,
-            room: s.room ? { ...s.room, current_round: event.data.round, game_phase: 'playing' } : s.room,
+            room: s.room ? { ...s.room, current_round: event.data.round, game_phase: 'playing', timer_seconds: event.data.timer_seconds } : s.room,
             phase: 'question',
             currentQuestion: event.data.question,
             roundResult: null, answeredThisRound: false,
             playersAnswered: [], eliminatedOptions: [], peekData: {},
             doubleActive: false, pendingPhaseSetup: null,
+            isPaused: false,
           }))
+          pausedRef.current = false
           startCountdown(event.data.timer_seconds)
           break
 
@@ -173,7 +198,9 @@ export function useRoom(roomCode: string, sessionId: string) {
 
         case 'ROUND_REVEAL':
           if (timerRef.current) clearInterval(timerRef.current)
-          setState(s => ({ ...s, phase: 'reveal', roundResult: event.data, timeLeft: 0 }))
+          setState(s => ({ ...s, phase: 'reveal', roundResult: event.data, timeLeft: 0, isPaused: false }))
+          pausedRef.current = false
+          if (autoResumeRef.current) clearTimeout(autoResumeRef.current)
           break
 
         case 'PHASE_END':
@@ -191,6 +218,28 @@ export function useRoom(roomCode: string, sessionId: string) {
           if (timerRef.current) clearInterval(timerRef.current)
           setState(s => ({ ...s, phase: 'finished' }))
           break
+
+        case 'GAME_PAUSED':
+          pausedRef.current = true
+          setState(s => ({
+            ...s,
+            isPaused: true,
+            pausedById: event.data.paused_by_id,
+            pausedByNickname: event.data.paused_by_nickname,
+          }))
+          // Auto-resume after 2 minutes
+          if (autoResumeRef.current) clearTimeout(autoResumeRef.current)
+          autoResumeRef.current = setTimeout(() => {
+            pausedRef.current = false
+            setState(s => ({ ...s, isPaused: false, pausedById: '', pausedByNickname: '' }))
+          }, 2 * 60 * 1000)
+          break
+
+        case 'GAME_RESUMED':
+          pausedRef.current = false
+          setState(s => ({ ...s, isPaused: false, pausedById: '', pausedByNickname: '' }))
+          if (autoResumeRef.current) clearTimeout(autoResumeRef.current)
+          break
       }
     }
 
@@ -200,6 +249,7 @@ export function useRoom(roomCode: string, sessionId: string) {
       if (channelRef.current) supabase.removeChannel(channelRef.current)
       if (playersSub) supabase.removeChannel(playersSub)
       if (timerRef.current) clearInterval(timerRef.current)
+      if (autoResumeRef.current) clearTimeout(autoResumeRef.current)
     }
   }, [roomCode, sessionId])
 

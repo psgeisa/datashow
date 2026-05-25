@@ -18,6 +18,30 @@ export type QuestionType = 'multiple_choice' | 'code' | 'debug' | 'chart' | 'mem
 export type AbilityType = 'eliminate' | 'skip' | 'peek' | 'double'
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
+// ── Supertópicos ────────────────────────────────────────────
+export type QuestionSuperTopic =
+  | 'ciencia_dados'
+  | 'cultura_dados'
+  | 'tipos_analise'
+  | 'machine_learning'
+  | 'validacao'
+  | 'metricas'
+
+export const CHOOSABLE_SUPERTOPICS: {
+  id: QuestionSuperTopic
+  name: string
+  emoji: string
+  color: string
+  description: string
+}[] = [
+  { id: 'ciencia_dados',    name: 'Ciência de Dados',          emoji: '🔬', color: '#3b82f6', description: 'Fundamentos, Python, SQL, IA Generativa' },
+  { id: 'cultura_dados',    name: 'Cultura de Dados',          emoji: '📊', color: '#f59e0b', description: 'Governança, KPIs, Power BI, Engenharia' },
+  { id: 'tipos_analise',    name: 'Tipos de Análise',          emoji: '🔍', color: '#10b981', description: 'Descritiva, Diagnóstica, Preditiva, Prescritiva' },
+  { id: 'machine_learning', name: 'Machine Learning',          emoji: '🤖', color: '#a855f7', description: 'Algoritmos, Classificação, Regressão, Clustering' },
+  { id: 'validacao',        name: 'Validação & Generalização', emoji: '✅', color: '#00d4ff', description: 'Treino/Teste, Cross-Validation, Leakage' },
+  { id: 'metricas',         name: 'Métricas de Avaliação',     emoji: '📈', color: '#ff6b35', description: 'AUC, KS, Precision, Recall, RMSE' },
+]
+
 // ── Personagem ──────────────────────────────────────────────
 export interface Character {
   slug: CharacterSlug
@@ -66,6 +90,7 @@ export interface Player {
 export interface Question {
   id: string
   category: QuestionCategory
+  super_topic?: string
   difficulty: Difficulty
   type: QuestionType
   question: string
@@ -111,6 +136,7 @@ export interface RoundResult {
     new_score: number
     combo: number
     multiplier: number
+    selected_index: number | null
   }[]
 }
 
@@ -124,14 +150,16 @@ export interface PhaseScore {
 
 // ── Eventos Broadcast do Supabase ───────────────────────────
 export type BroadcastPayload =
-  | { type: 'QUESTION_START';      data: { round: number; question: QuestionPublic; started_at: string; timer_seconds: number } }
-  | { type: 'ROUND_REVEAL';        data: RoundResult }
-  | { type: 'GAME_FINISHED';       data: { final_scores: Player[] } }
-  | { type: 'PLAYER_ANSWERED';     data: { player_id: string; nickname: string } }
-  | { type: 'ABILITY_USED';        data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
-  | { type: 'CHOOSING_CATEGORY';   data: { phase: number; chooser_player_id: string; chooser_nickname: string } }
-  | { type: 'CATEGORY_CHOSEN';     data: { phase: number; category: QuestionCategory; category_name: string } }
-  | { type: 'PHASE_END';           data: { completed_phase: number; player_scores: PhaseScore[] } }
+  | { type: 'QUESTION_START';  data: { round: number; question: QuestionPublic; started_at: string; timer_seconds: number } }
+  | { type: 'ROUND_REVEAL';    data: RoundResult }
+  | { type: 'GAME_FINISHED';   data: { final_scores: Player[] } }
+  | { type: 'PLAYER_ANSWERED'; data: { player_id: string; nickname: string } }
+  | { type: 'ABILITY_USED';    data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
+  | { type: 'CHOOSING_CATEGORY'; data: { phase: number; chooser_player_id: string; chooser_nickname: string } }
+  | { type: 'CATEGORY_CHOSEN'; data: { phase: number; super_topic: QuestionSuperTopic; category_name: string } }
+  | { type: 'PHASE_END';       data: { completed_phase: number; player_scores: PhaseScore[] } }
+  | { type: 'GAME_PAUSED';     data: { paused_by_id: string; paused_by_nickname: string } }
+  | { type: 'GAME_RESUMED';    data: { resumed_by_id: string } }
 
 // ── Estado local do jogo (client-side) ──────────────────────
 export type GamePhase = 'lobby' | 'choosing_category' | 'question' | 'reveal' | 'phase_end' | 'finished'
@@ -154,7 +182,11 @@ export interface GameState {
   chooserPlayerId: string
   phaseScores: PhaseScore[]
   completedPhase: number
-  pendingPhaseSetup: { phase: number; category: QuestionCategory; category_name: string } | null
+  pendingPhaseSetup: { phase: number; super_topic: QuestionSuperTopic; category_name: string } | null
+  // Pausa
+  isPaused: boolean
+  pausedById: string
+  pausedByNickname: string
 }
 
 // ── Resultado de pontuação ───────────────────────────────────
@@ -166,11 +198,11 @@ export interface ScoreResult {
   breakdown: string[]
 }
 
-// ── Categorias jogáveis ──────────────────────────────────────
+// ── Categorias jogáveis (legado) ─────────────────────────────
 export const CHOOSABLE_CATEGORIES: { id: QuestionCategory; name: string; emoji: string; color: string; min_questions: number }[] = [
-  { id: 'ml',       name: 'Machine Learning & DS',   emoji: '🤖', color: '#a855f7', min_questions: 10 },
-  { id: 'python',   name: 'Python & IA Generativa',  emoji: '🐍', color: '#3b82f6', min_questions: 10 },
-  { id: 'sql',      name: 'SQL & Banco de Dados',     emoji: '🗃️', color: '#00d4ff', min_questions: 10 },
-  { id: 'stats',    name: 'Estatística',              emoji: '📊', color: '#f59e0b', min_questions: 10 },
-  { id: 'data_eng', name: 'Engenharia de Dados',      emoji: '⚙️', color: '#10b981', min_questions: 10 },
+  { id: 'ml',       name: 'Machine Learning & DS',  emoji: '🤖', color: '#a855f7', min_questions: 10 },
+  { id: 'python',   name: 'Python & IA Generativa', emoji: '🐍', color: '#3b82f6', min_questions: 10 },
+  { id: 'sql',      name: 'SQL & Banco de Dados',    emoji: '🗃️', color: '#00d4ff', min_questions: 10 },
+  { id: 'stats',    name: 'Estatística',             emoji: '📊', color: '#f59e0b', min_questions: 10 },
+  { id: 'data_eng', name: 'Engenharia de Dados',     emoji: '⚙️', color: '#10b981', min_questions: 10 },
 ]

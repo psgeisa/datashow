@@ -1,7 +1,7 @@
 'use client'
 import type { AvatarConfig } from '@/types/game'
 
-export type AvatarPose = 'idle' | 'correct' | 'wrong' | 'answering'
+export type AvatarPose = 'idle' | 'correct' | 'wrong' | 'answering' | 'clown'
 
 interface Props {
   config: AvatarConfig
@@ -15,12 +15,14 @@ interface Props {
  *   correct  – olhos brilhantes verdes, gargalhada, braços levantados, sparkles
  *   wrong    – olhos tristes com lágrima, boca trêmula, braços caídos, sweat drop
  *   answering– olhos meio fechados / pensando
+ *   clown    – rosto triste igual a wrong + nariz vermelho de palhaço
  */
 export function AvatarSvg({ config, size = 64, pose = 'idle' }: Props) {
   const { skinTone, hairStyle, hairColor, shirtColor, pantsColor } = config
-  const ok  = pose === 'correct'
-  const bad = pose === 'wrong'
+  const ok      = pose === 'correct'
+  const bad     = pose === 'wrong' || pose === 'clown'
   const thinking = pose === 'answering'
+  const clown   = pose === 'clown'
 
   return (
     <svg
@@ -225,6 +227,14 @@ export function AvatarSvg({ config, size = 64, pose = 'idle' }: Props) {
       {/* Bochecha (corada) */}
       <ellipse cx="19" cy="33" rx="6" ry="4" fill={ok ? 'rgba(255,100,130,0.35)' : 'rgba(255,100,130,0.18)'} />
       <ellipse cx="61" cy="33" rx="6" ry="4" fill={ok ? 'rgba(255,100,130,0.35)' : 'rgba(255,100,130,0.18)'} />
+
+      {/* Nariz de palhaço 🔴 */}
+      {clown && (
+        <>
+          <circle cx="40" cy="35" r="5.5" fill="#ef4444" />
+          <circle cx="38.5" cy="33.5" r="1.8" fill="rgba(255,255,255,0.45)" />
+        </>
+      )}
 
       {/* Boca */}
       {ok ? (

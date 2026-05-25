@@ -16,7 +16,15 @@ export async function POST(req: NextRequest) {
 
   const { data: room, error: roomErr } = await supabase
     .from('rooms')
-    .insert({ code, host_session_id: session_id, timer_seconds: 12, total_rounds: 30, total_phases: 3, current_phase: 1, game_phase: 'waiting' })
+    .insert({
+      code,
+      host_session_id: session_id,
+      timer_seconds: 12,
+      total_rounds: 40,   // 4 fases × 10 perguntas
+      total_phases: 4,
+      current_phase: 1,
+      game_phase: 'waiting',
+    })
     .select()
     .single()
 
@@ -24,7 +32,13 @@ export async function POST(req: NextRequest) {
 
   const { data: player, error: playerErr } = await supabase
     .from('players')
-    .insert({ room_id: room.id, session_id, nickname: nickname.trim(), character_slug: character_slug ?? null, avatar_config: avatar_config ?? null })
+    .insert({
+      room_id: room.id,
+      session_id,
+      nickname: nickname.trim(),
+      character_slug: character_slug ?? null,
+      avatar_config: avatar_config ?? null,
+    })
     .select()
     .single()
 

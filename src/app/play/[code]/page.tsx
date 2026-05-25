@@ -16,14 +16,13 @@ import { MusicEngine } from '@/lib/audio/music'
 import { warmUpAudio } from '@/lib/audio/context'
 import { SoundFX } from '@/lib/audio/sfx'
 import { getCharacter } from '@/lib/game/characters'
-import { CHOOSABLE_CATEGORIES } from '@/types/game'
-import type { QuestionCategory } from '@/types/game'
+import { CHOOSABLE_SUPERTOPICS } from '@/types/game'
+import type { QuestionSuperTopic } from '@/types/game'
 
 // ── Spotlights decorativos ─────────────────────────────────────────────────
 function StudioLights() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 0 }}>
-      {/* Beam esquerdo */}
       <div style={{
         position: 'absolute', top: 0, left: '10%',
         width: 3, height: '55vh',
@@ -32,7 +31,6 @@ function StudioLights() {
         animation: 'beam-sweep 6s ease-in-out infinite',
         filter: 'blur(2px)',
       }} />
-      {/* Beam direito */}
       <div style={{
         position: 'absolute', top: 0, right: '10%',
         width: 3, height: '50vh',
@@ -41,12 +39,10 @@ function StudioLights() {
         animation: 'beam-sweep2 7s ease-in-out infinite',
         filter: 'blur(2px)',
       }} />
-      {/* Glow de palco no chão */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, height: '30vh',
         background: 'radial-gradient(ellipse at 50% 100%, rgba(80,50,150,0.25) 0%, transparent 70%)',
       }} />
-      {/* Stars */}
       {[...Array(12)].map((_, i) => (
         <div key={i} style={{
           position: 'absolute',
@@ -75,12 +71,13 @@ export default function PlayPage() {
     roundResult, answeredThisRound, playersAnswered, eliminatedOptions,
     peekData, doubleActive, currentFase, chooserPlayerId, phaseScores,
     completedPhase, pendingPhaseSetup,
+    isPaused, pausedById, pausedByNickname,
   } = state
 
   const isHost    = room?.host_session_id === sessionId
   const myChar    = getCharacter(myPlayer?.character_slug)
   const isChooser = myPlayer?.id === chooserPlayerId
-  const totalFases = room?.total_phases ?? 3
+  const totalFases = room?.total_phases ?? 4
   const roundInPhase = room ? ((room.current_round - 1) % 10) + 1 : 1
 
   const { effectiveVolume } = useSettings()
@@ -144,6 +141,17 @@ export default function PlayPage() {
       window.speechSynthesis.cancel()
   }, [effectiveVolume])
 
+  // ── F5 prevention: warn before reload during active question ─────────────
+  useEffect(() => {
+    if (phase !== 'question') return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = 'Você tem uma pergunta ativa. Recarregar não permitirá re-responder.'
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [phase])
+
   // Reset pontuação da fase quando fase muda
   const lastResetFaseRef = useRef(-1)
   useEffect(() => {
@@ -168,11 +176,9 @@ export default function PlayPage() {
 
     setMyResult(isCorrect ? 'correct' : 'wrong')
 
-    // Reações de todos os jogadores
     const reactions: Record<string, 'correct' | 'wrong'> = {}
     for (const pr of roundResult.player_results) {
       reactions[pr.player_id] = pr.is_correct ? 'correct' : 'wrong'
-      // Acumula pontos da fase
       phaseEarnedRef.current[pr.player_id] =
         (phaseEarnedRef.current[pr.player_id] ?? 0) + pr.points_earned
     }
@@ -181,35 +187,49 @@ export default function PlayPage() {
     setTimeout(() => setPlayerReactions({}), 2500)
   }, [phase, roundResult])
 
-  // Reset reactions on new question
   useEffect(() => {
     if (phase === 'question') { setMyResult(null); setPlayerReactions({}) }
   }, [phase])
 
-  // Thinking reaction when player answers but round not revealed
   useEffect(() => {
     if (phase === 'question' && answeredThisRound) {
-      setPlayerReactions(r => ({ ...r, [playerId]: 'correct' })) // just show a "done" state
+      setPlayerReactions(r => ({ ...r, [playerId]: 'correct' }))
     }
   }, [answeredThisRound])
 
-  // ── HOST: reagir ao CATEGORY_CHOSEN → chamar API ──────────────────────────
+  // ── HOST: reagir ao CATEGORY_CHOSEN → anunciar 4s → chamar API ───────────
   const pendingSetupRef = useRef<string | null>(null)
   useEffect(() => {
     if (!isHost || !pendingPhaseSetup || !room) return
-    const key = `${pendingPhaseSetup.phase}:${pendingPhaseSetup.category}`
+    const key = `${pendingPhaseSetup.phase}:${pendingPhaseSetup.super_topic}`
     if (pendingSetupRef.current === key) return
     pendingSetupRef.current = key
-    ;(async () => {
+
+    // Wait 4 seconds so all players can see the supertopic announcement
+    const announcTimer = setTimeout(async () => {
       const res = await fetch('/api/game/choose-category', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: room.id, session_id: sessionId, category: pendingPhaseSetup.category, phase: pendingPhaseSetup.phase }),
+        body: JSON.stringify({
+          room_id: room.id,
+          session_id: sessionId,
+          super_topic: pendingPhaseSetup.super_topic,
+          phase: pendingPhaseSetup.phase,
+        }),
       })
       const data = await res.json()
       if (data.success) {
-        broadcast({ type: 'QUESTION_START', data: { round: data.round, question: data.question, started_at: new Date().toISOString(), timer_seconds: room.timer_seconds } })
+        broadcast({
+          type: 'QUESTION_START',
+          data: {
+            round: data.round,
+            question: data.question,
+            started_at: new Date().toISOString(),
+            timer_seconds: data.timer_seconds ?? room.timer_seconds,
+          },
+        })
       }
-    })()
+    }, 4000)
+    return () => clearTimeout(announcTimer)
   }, [pendingPhaseSetup, isHost])
 
   // HOST: broadcast CHOOSING_CATEGORY fase 1
@@ -227,14 +247,14 @@ export default function PlayPage() {
   // HOST: auto-avança
   const revealTriggeredRef = useRef<number>(-1)
   useEffect(() => {
-    if (!isHost || phase !== 'question' || !room) return
+    if (!isHost || phase !== 'question' || !room || isPaused) return
     if (revealTriggeredRef.current === room.current_round) return
     const allAnswered = players.length > 0 && playersAnswered.length >= players.length
     if (allAnswered || timeLeft === 0) {
       revealTriggeredRef.current = room.current_round
       triggerReveal()
     }
-  }, [playersAnswered.length, timeLeft, phase])
+  }, [playersAnswered.length, timeLeft, phase, isPaused])
 
   useEffect(() => { if (phase === 'finished') router.push(`/results/${code}`) }, [phase])
 
@@ -265,10 +285,20 @@ export default function PlayPage() {
     }
   }
 
-  function handleChooseCategory(category: QuestionCategory) {
+  function handleChooseSupertopic(super_topic: QuestionSuperTopic) {
     if (!myPlayer || !room) return
-    const cat = CHOOSABLE_CATEGORIES.find(c => c.id === category)
-    broadcast({ type: 'CATEGORY_CHOSEN', data: { phase: currentFase, category, category_name: cat?.name ?? category } })
+    const st = CHOOSABLE_SUPERTOPICS.find(s => s.id === super_topic)
+    broadcast({ type: 'CATEGORY_CHOSEN', data: { phase: currentFase, super_topic, category_name: st?.name ?? super_topic } })
+  }
+
+  function handlePause() {
+    if (!myPlayer) return
+    if (isPaused && pausedById === playerId) {
+      // Manual resume by the person who paused
+      broadcast({ type: 'GAME_RESUMED', data: { resumed_by_id: playerId } })
+    } else if (!isPaused) {
+      broadcast({ type: 'GAME_PAUSED', data: { paused_by_id: playerId, paused_by_nickname: myPlayer.nickname } })
+    }
   }
 
   async function triggerReveal() {
@@ -286,14 +316,22 @@ export default function PlayPage() {
       } else if (nextData.phase_end) {
         broadcast({ type: 'PHASE_END', data: { completed_phase: nextData.completed_phase, player_scores: nextData.player_scores } })
         setTimeout(() => {
-          if (nextData.next_phase > (room.total_phases ?? 3)) return
+          if (nextData.next_phase > totalFases) return
           const ordered = [...players].sort((a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())
           const chooser = ordered[(nextData.next_phase - 1) % Math.max(1, ordered.length)]
           if (!chooser) return
           broadcast({ type: 'CHOOSING_CATEGORY', data: { phase: nextData.next_phase, chooser_player_id: chooser.id, chooser_nickname: chooser.nickname } })
         }, 12000)
       } else {
-        broadcast({ type: 'QUESTION_START', data: { round: nextData.round, question: nextData.question, started_at: new Date().toISOString(), timer_seconds: room.timer_seconds } })
+        broadcast({
+          type: 'QUESTION_START',
+          data: {
+            round: nextData.round,
+            question: nextData.question,
+            started_at: new Date().toISOString(),
+            timer_seconds: nextData.timer_seconds ?? room.timer_seconds,
+          },
+        })
       }
     }, 14000)
   }
@@ -325,82 +363,104 @@ export default function PlayPage() {
     )
   }
 
-  // ── Background do estúdio ──────────────────────────────────────────────────
   const studioBg = { background: 'radial-gradient(ellipse at 50% -5%, #1a0f3e 0%, #0d0d1f 40%, #050510 100%)' }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ESCOLHA DE CATEGORIA
+  // ESCOLHA DE SUPERTÓPICO
   // ═══════════════════════════════════════════════════════════════════════════
   if (phase === 'choosing_category') {
-    const chooserPlayer = players.find(p => p.id === chooserPlayerId)
+    const chooserPlayer  = players.find(p => p.id === chooserPlayerId)
+    const announcedST    = CHOOSABLE_SUPERTOPICS.find(s => s.id === pendingPhaseSetup?.super_topic)
+    const isAnnouncing   = !!pendingPhaseSetup     // supertopic chosen, awaiting API call
+
     return (
       <main className="relative min-h-screen flex flex-col items-center justify-center p-4 text-white overflow-hidden" style={studioBg} onClick={warmUpAudio}>
         <StudioLights />
-        <div className="relative z-10 max-w-lg w-full text-center space-y-6 animate-slide-up">
-          {/* DataShow branding */}
-          <div>
-            <p className="text-xs tracking-[0.3em] uppercase text-yellow-500/70 mb-1">DataShow</p>
-            <p className="text-gray-500 text-xs">
-              Fase <span className="text-cyan-400 font-bold">{currentFase}</span> de {totalFases}
-            </p>
-          </div>
 
-          {/* Host centralizado */}
-          <div className="flex justify-center">
-            <HostCharacter
-              pose={isChooser ? 'presenting' : 'idle'}
-              speech={isChooser ? 'Escolha o tema desta fase!' : `${chooserPlayer?.nickname ?? '...'} está escolhendo...`}
-              size={80}
-            />
+        {/* ── Anúncio do supertópico escolhido (todos veem por 4s) ──────── */}
+        {isAnnouncing && announcedST ? (
+          <div className="relative z-10 max-w-sm w-full text-center space-y-5 animate-slide-up">
+            <p className="text-xs tracking-[0.3em] uppercase text-yellow-500/70">Tema escolhido!</p>
+            <div
+              className="rounded-3xl p-8 space-y-3"
+              style={{
+                background: `linear-gradient(135deg, ${announcedST.color}22 0%, rgba(0,0,0,0.4) 100%)`,
+                border: `2px solid ${announcedST.color}60`,
+                boxShadow: `0 0 40px ${announcedST.color}30`,
+              }}
+            >
+              <div className="text-7xl">{announcedST.emoji}</div>
+              <h2 className="text-3xl font-black" style={{ color: announcedST.color, textShadow: `0 0 20px ${announcedST.color}80` }}>
+                {announcedST.name}
+              </h2>
+              <p className="text-gray-400 text-sm">{announcedST.description}</p>
+            </div>
+            <p className="text-gray-500 text-xs animate-pulse">Preparando as perguntas...</p>
           </div>
+        ) : (
+          /* ── Tela de seleção ─────────────────────────────────────────── */
+          <div className="relative z-10 max-w-lg w-full text-center space-y-6 animate-slide-up">
+            <div>
+              <p className="text-xs tracking-[0.3em] uppercase text-yellow-500/70 mb-1">DataShow</p>
+              <p className="text-gray-500 text-xs">
+                Fase <span className="text-cyan-400 font-bold">{currentFase}</span> de {totalFases}
+              </p>
+            </div>
 
-          {/* Título dramático */}
-          <div>
-            <h2 className="text-3xl font-black" style={{ textShadow: '0 0 20px rgba(201,162,39,0.5)' }}>
-              {isChooser ? '🎯 Qual será o tema?' : '⏳ Aguardando...'}
-            </h2>
-          </div>
+            <div className="flex justify-center">
+              <HostCharacter
+                pose={isChooser ? 'presenting' : 'idle'}
+                speech={isChooser ? 'Escolha o tema desta fase!' : `${chooserPlayer?.nickname ?? '...'} está escolhendo...`}
+                size={80}
+              />
+            </div>
 
-          {/* Grade de categorias (só para o chooser) */}
-          {isChooser ? (
-            <div className="space-y-2.5">
-              {CHOOSABLE_CATEGORIES.map((cat, i) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleChooseCategory(cat.id)}
-                  className="animate-cat-reveal w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  style={{
-                    animationDelay: `${i * 0.08}s`,
-                    background: `linear-gradient(90deg, ${cat.color}18 0%, rgba(0,0,0,0.3) 100%)`,
-                    border: `1.5px solid ${cat.color}50`,
-                    boxShadow: `0 0 15px ${cat.color}15`,
-                  }}
-                >
-                  <span className="text-3xl">{cat.emoji}</span>
-                  <div className="flex-1">
-                    <p className="font-black text-base">{cat.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">10 perguntas</p>
+            <div>
+              <h2 className="text-3xl font-black" style={{ textShadow: '0 0 20px rgba(201,162,39,0.5)' }}>
+                {isChooser ? '🎯 Qual será o tema?' : '⏳ Aguardando...'}
+              </h2>
+            </div>
+
+            {isChooser ? (
+              <div className="space-y-2.5">
+                {CHOOSABLE_SUPERTOPICS.map((st, i) => (
+                  <button
+                    key={st.id}
+                    onClick={() => handleChooseSupertopic(st.id)}
+                    className="animate-cat-reveal w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    style={{
+                      animationDelay: `${i * 0.08}s`,
+                      background: `linear-gradient(90deg, ${st.color}18 0%, rgba(0,0,0,0.3) 100%)`,
+                      border: `1.5px solid ${st.color}50`,
+                      boxShadow: `0 0 15px ${st.color}15`,
+                    }}
+                  >
+                    <span className="text-3xl">{st.emoji}</span>
+                    <div className="flex-1 text-left">
+                      <p className="font-black text-base">{st.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{st.description}</p>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0" style={{ background: `${st.color}25`, color: st.color }}>
+                      Escolher →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                {players.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ borderColor: 'rgba(255,255,255,0.1)', background: p.id === chooserPlayerId ? 'rgba(201,162,39,0.1)' : 'rgba(255,255,255,0.03)' }}>
+                    <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
+                    <span className={`text-sm font-semibold ${p.id === chooserPlayerId ? 'text-yellow-400 animate-pulse' : 'text-gray-400'}`}>
+                      {p.nickname}
+                    </span>
+                    {p.id === chooserPlayerId && <span className="animate-ping inline-flex h-2 w-2 rounded-full bg-yellow-400 opacity-75" />}
                   </div>
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: `${cat.color}25`, color: cat.color }}>
-                    Escolher →
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              {players.map(p => (
-                <div key={p.id} className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ borderColor: 'rgba(255,255,255,0.1)', background: p.id === chooserPlayerId ? 'rgba(201,162,39,0.1)' : 'rgba(255,255,255,0.03)' }}>
-                  <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
-                  <span className={`text-sm font-semibold ${p.id === chooserPlayerId ? 'text-yellow-400 animate-pulse' : 'text-gray-400'}`}>
-                    {p.nickname}
-                  </span>
-                  {p.id === chooserPlayerId && <span className="animate-ping inline-flex h-2 w-2 rounded-full bg-yellow-400 opacity-75" />}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <SettingsButton />
       </main>
     )
@@ -429,7 +489,6 @@ export default function PlayPage() {
             )}
           </div>
 
-          {/* Ranking desta fase */}
           <div>
             <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(201,162,39,0.8)' }}>
               ⚡ Pontuação desta fase
@@ -447,7 +506,6 @@ export default function PlayPage() {
             </div>
           </div>
 
-          {/* Placar geral */}
           <div>
             <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(168,85,247,0.8)' }}>
               🏆 Placar geral
@@ -496,6 +554,27 @@ export default function PlayPage() {
     <main className="relative min-h-screen flex flex-col text-white overflow-hidden" style={studioBg}>
       <StudioLights />
 
+      {/* ── Overlay de pausa ────────────────────────────────────────────────── */}
+      {isPaused && (
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+          <div className="text-center space-y-4 animate-slide-up">
+            <div className="text-6xl">⏸️</div>
+            <h2 className="text-2xl font-black text-white">Jogo Pausado</h2>
+            <p className="text-gray-400 text-sm">por <span className="text-cyan-400 font-bold">{pausedByNickname}</span></p>
+            <p className="text-gray-500 text-xs">Retoma automaticamente em 2 minutos</p>
+            {pausedById === playerId && (
+              <button
+                onClick={handlePause}
+                className="mt-4 px-8 py-3 rounded-2xl font-black text-sm transition-all hover:scale-105 active:scale-95"
+                style={{ background: 'rgba(0,212,255,0.15)', border: '2px solid #00d4ff', color: '#00d4ff' }}
+              >
+                ▶️ Retomar agora
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="relative z-10 flex flex-col min-h-screen p-3 pb-2 max-w-2xl mx-auto w-full">
 
         {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -503,7 +582,6 @@ export default function PlayPage() {
           className="flex items-center justify-between px-4 py-2.5 rounded-2xl mb-3"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
         >
-          {/* Fase info */}
           <div className="text-xs font-black">
             <span style={{ color: 'rgba(201,162,39,0.9)' }}>DataShow</span>
             <span className="text-gray-600 mx-1.5">•</span>
@@ -513,12 +591,22 @@ export default function PlayPage() {
             <span className="text-gray-600 ml-1">— P{roundInPhase}/10</span>
           </div>
 
-          {/* Timer */}
           {phase === 'question' && (
-            <Timer timeLeft={timeLeft} totalTime={room.timer_seconds} />
+            <div className="flex items-center gap-2">
+              <Timer timeLeft={timeLeft} totalTime={room.timer_seconds} />
+              {/* Pause button */}
+              <button
+                onClick={handlePause}
+                disabled={isPaused && pausedById !== playerId}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-95 disabled:opacity-30"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+                title={isPaused ? 'Retomar' : 'Pausar'}
+              >
+                {isPaused ? '▶️' : '⏸️'}
+              </button>
+            </div>
           )}
 
-          {/* Mini avatares */}
           <div className="flex gap-1.5">
             {players.map(p => (
               <div key={p.id} className="relative" title={p.nickname}>
@@ -557,8 +645,6 @@ export default function PlayPage() {
 
             {/* ── Faixa de baixo: Apresentador + Participantes lado a lado ──── */}
             <div className="flex items-end gap-3 mt-3">
-
-              {/* Host flutuando à esquerda */}
               <div className="flex-shrink-0">
                 <HostCharacter
                   pose={answeredThisRound ? 'idle' : 'presenting'}
@@ -567,9 +653,7 @@ export default function PlayPage() {
                 />
               </div>
 
-              {/* Painel de participantes à direita */}
               <div className="flex-1 min-w-0">
-                {/* Combo + Ability acima dos participantes */}
                 {(myPlayer && myPlayer.combo >= 2 || (!answeredThisRound && myPlayer && myPlayer.ability_uses > 0)) && (
                   <div className="flex justify-end gap-2 mb-2">
                     {myPlayer && myPlayer.combo >= 2 && (
@@ -586,7 +670,6 @@ export default function PlayPage() {
                   </div>
                 )}
 
-                {/* Grid de jogadores */}
                 <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
                     const done  = playersAnswered.includes(p.id)
@@ -600,15 +683,9 @@ export default function PlayPage() {
                           border:      `1px solid ${done ? 'rgba(34,197,94,0.3)' : isMe ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
                         }}
                       >
-                        <AvatarSvg
-                          config={p.avatar_config ?? DEFAULT_AVATAR}
-                          size={26}
-                          pose={done ? 'answering' : 'idle'}
-                        />
+                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={26} pose={done ? 'answering' : 'idle'} />
                         <div className="flex-1 min-w-0">
-                          <p className="truncate font-bold" style={{ color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.85)' }}>
-                            {p.nickname}
-                          </p>
+                          <p className="truncate font-bold" style={{ color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.85)' }}>{p.nickname}</p>
                           <p className="text-gray-500">{p.score.toLocaleString()} pts</p>
                         </div>
                         {done
@@ -628,7 +705,7 @@ export default function PlayPage() {
         {phase === 'reveal' && roundResult && currentQuestion && (
           <div className="space-y-4 animate-slide-up">
 
-            {/* ── MURAL DE REAÇÕES: todos os personagens lado a lado ────────── */}
+            {/* ── MURAL DE REAÇÕES ──────────────────────────────────────────── */}
             <div
               className="rounded-2xl py-4 px-3"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
@@ -639,24 +716,36 @@ export default function PlayPage() {
                   const isCorrect = pr?.is_correct ?? false
                   const pts       = pr?.points_earned ?? 0
                   const isMe      = p.id === playerId
+                  const wrongText = (!isCorrect && pr?.selected_index != null)
+                    ? currentQuestion.options[pr.selected_index]
+                    : null
+
                   return (
-                    <div key={p.id} className="flex flex-col items-center gap-1" style={{ minWidth: 62 }}>
-                      {/* Avatar com pose + animação CSS */}
+                    <div key={p.id} className="flex flex-col items-center gap-1" style={{ minWidth: 68 }}>
+                      {/* Avatar com pose de palhaço se errou */}
                       <div className={isCorrect ? 'animate-correct' : 'animate-wrong'}>
                         <AvatarSvg
                           config={p.avatar_config ?? DEFAULT_AVATAR}
-                          size={56}
-                          pose={isCorrect ? 'correct' : 'wrong'}
+                          size={54}
+                          pose={isCorrect ? 'correct' : 'clown'}
                         />
                       </div>
-                      {/* Nome */}
+                      {/* Placa de resposta errada */}
+                      {wrongText && (
+                        <div
+                          className="text-[9px] font-bold text-center rounded-lg px-2 py-1 max-w-[80px] leading-tight"
+                          style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}
+                        >
+                          Eu respondi:<br />
+                          <span className="text-white">{wrongText.length > 20 ? wrongText.slice(0, 20) + '…' : wrongText}</span>
+                        </div>
+                      )}
                       <span
                         className="text-xs font-bold text-center truncate"
                         style={{ maxWidth: 72, color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.75)' }}
                       >
                         {p.nickname}{isMe ? ' ★' : ''}
                       </span>
-                      {/* Pontos desta pergunta */}
                       <span className={`text-sm font-black ${pts > 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {pts > 0 ? `+${pts}` : '✗'}
                       </span>
@@ -680,7 +769,7 @@ export default function PlayPage() {
               </div>
             </div>
 
-            {/* Pontos desta pergunta — todos os jogadores */}
+            {/* Pontos desta pergunta */}
             <div>
               <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(201,162,39,0.75)' }}>
                 📊 Pontos desta pergunta
@@ -726,7 +815,7 @@ export default function PlayPage() {
                 {[...players]
                   .sort((a, b) => (phaseEarned[b.id] ?? 0) - (phaseEarned[a.id] ?? 0))
                   .map((p, i) => {
-                    const EMOJIS    = ['🥇', '🥈', '🥉', '4️⃣']
+                    const EMOJIS     = ['🥇', '🥈', '🥉', '4️⃣']
                     const phaseScore = phaseEarned[p.id] ?? 0
                     return (
                       <div key={p.id}
