@@ -17,30 +17,23 @@ export async function POST(req: NextRequest) {
   if (room.host_session_id !== session_id) return NextResponse.json({ error: 'Apenas o host pode iniciar' }, { status: 403 })
   if (room.status !== 'waiting') return NextResponse.json({ error: 'Jogo já iniciado' }, { status: 409 })
 
-  // ── 1. Sync perguntas locais ──────────────────────────────────────────────
-  const { count: manualCount } = await supabase
-    .from('questions')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_ai_generated', false)
-
-  if (!manualCount || manualCount !== LOCAL_QUESTIONS.length) {
-    await supabase.from('questions').delete().eq('is_ai_generated', false)
-    await supabase.from('questions').insert(
-      LOCAL_QUESTIONS.map(q => ({
-        category:     q.category,
-        difficulty:   q.difficulty,
-        type:         q.type,
-        question:     q.question,
-        options:      q.options,
-        correct_index: q.correct_index,
-        explanation:  q.explanation ?? null,
-        code_snippet: q.code_snippet ?? null,
-        meme_context: q.meme_context ?? null,
-        super_topic:  computeSuperTopic(q.category, q.question),
-        is_ai_generated: false,
-      }))
-    )
-  }
+  // ── 1. Sync perguntas locais (sempre re-sincroniza para garantir super_topic) ─
+  await supabase.from('questions').delete().eq('is_ai_generated', false)
+  await supabase.from('questions').insert(
+    LOCAL_QUESTIONS.map(q => ({
+      category:      q.category,
+      difficulty:    q.difficulty,
+      type:          q.type,
+      question:      q.question,
+      options:       q.options,
+      correct_index: q.correct_index,
+      explanation:   q.explanation ?? null,
+      code_snippet:  q.code_snippet ?? null,
+      meme_context:  q.meme_context ?? null,
+      super_topic:   computeSuperTopic(q.category, q.question),
+      is_ai_generated: false,
+    }))
+  )
 
   // ── 2. Buscar 1º jogador (será o chooser da fase 1) ──────────────────────
   const { data: players } = await supabase
