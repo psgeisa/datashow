@@ -89,6 +89,10 @@ export default function PlayPage() {
   const [playerReactions, setPlayerReactions] = useState<Record<string, 'correct' | 'wrong' | 'thinking' | null>>({})
   const [myResult, setMyResult] = useState<'correct' | 'wrong' | null>(null)
 
+  // ── Pontuação acumulada na fase atual ─────────────────────────────────────
+  const phaseEarnedRef = useRef<Record<string, number>>({})
+  const [phaseEarned,  setPhaseEarned]  = useState<Record<string, number>>({})
+
   // ── Áudio ──────────────────────────────────────────────────────────────────
   const musicRef = useRef<MusicEngine | null>(null)
   const sfxRef   = useRef<SoundFX | null>(null)
@@ -140,7 +144,17 @@ export default function PlayPage() {
       window.speechSynthesis.cancel()
   }, [effectiveVolume])
 
-  // SFX + reações
+  // Reset pontuação da fase quando fase muda
+  const lastResetFaseRef = useRef(-1)
+  useEffect(() => {
+    if (currentFase !== lastResetFaseRef.current) {
+      lastResetFaseRef.current = currentFase
+      phaseEarnedRef.current   = {}
+      setPhaseEarned({})
+    }
+  }, [currentFase])
+
+  // SFX + reações + acumulo de pontos por fase
   const sfxRoundRef = useRef(-1)
   useEffect(() => {
     if (phase !== 'reveal' || !roundResult || !room) return
@@ -158,8 +172,12 @@ export default function PlayPage() {
     const reactions: Record<string, 'correct' | 'wrong'> = {}
     for (const pr of roundResult.player_results) {
       reactions[pr.player_id] = pr.is_correct ? 'correct' : 'wrong'
+      // Acumula pontos da fase
+      phaseEarnedRef.current[pr.player_id] =
+        (phaseEarnedRef.current[pr.player_id] ?? 0) + pr.points_earned
     }
     setPlayerReactions(reactions)
+    setPhaseEarned({ ...phaseEarnedRef.current })
     setTimeout(() => setPlayerReactions({}), 2500)
   }, [phase, roundResult])
 
@@ -519,18 +537,6 @@ export default function PlayPage() {
           </div>
         </div>
 
-        {/* ── Host + Combo row ─────────────────────────────────────────────── */}
-        <div className="flex items-end justify-between mb-3">
-          <HostCharacter pose={hostPose} speech={hostSpeech} size={60} />
-
-          <div className="flex flex-col items-end gap-2">
-            {myPlayer && <ComboDisplay combo={myPlayer.combo} multiplier={myPlayer.multiplier} />}
-            {phase === 'question' && !answeredThisRound && myPlayer && myPlayer.ability_uses > 0 && (
-              <AbilityButton character_slug={myPlayer.character_slug} uses={myPlayer.ability_uses} onUse={handleAbility} disabled={answeredThisRound} />
-            )}
-          </div>
-        </div>
-
         {/* Double Down banner */}
         {doubleActive && phase === 'question' && (
           <div className="text-center text-sm text-green-400 font-bold animate-pulse mb-2 py-1.5 rounded-xl" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
@@ -549,30 +555,72 @@ export default function PlayPage() {
               peekData={Object.keys(peekData).length > 0 ? peekData : undefined}
             />
 
-            {answeredThisRound && (
-              <div className="mt-3 space-y-2">
-                <p className="text-center text-gray-500 text-xs font-bold tracking-widest uppercase">
-                  Aguardando os outros...
-                </p>
-                <div className="grid grid-cols-2 gap-2">
+            {/* ── Faixa de baixo: Apresentador + Participantes lado a lado ──── */}
+            <div className="flex items-end gap-3 mt-3">
+
+              {/* Host flutuando à esquerda */}
+              <div className="flex-shrink-0">
+                <HostCharacter
+                  pose={answeredThisRound ? 'idle' : 'presenting'}
+                  speech={answeredThisRound ? 'Aguardando...' : hostSpeech}
+                  size={54}
+                />
+              </div>
+
+              {/* Painel de participantes à direita */}
+              <div className="flex-1 min-w-0">
+                {/* Combo + Ability acima dos participantes */}
+                {(myPlayer && myPlayer.combo >= 2 || (!answeredThisRound && myPlayer && myPlayer.ability_uses > 0)) && (
+                  <div className="flex justify-end gap-2 mb-2">
+                    {myPlayer && myPlayer.combo >= 2 && (
+                      <ComboDisplay combo={myPlayer.combo} multiplier={myPlayer.multiplier} />
+                    )}
+                    {!answeredThisRound && myPlayer && myPlayer.ability_uses > 0 && (
+                      <AbilityButton
+                        character_slug={myPlayer.character_slug}
+                        uses={myPlayer.ability_uses}
+                        onUse={handleAbility}
+                        disabled={answeredThisRound}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Grid de jogadores */}
+                <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
-                    const done = playersAnswered.includes(p.id)
+                    const done  = playersAnswered.includes(p.id)
+                    const isMe  = p.id === playerId
                     return (
-                      <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                      <div
+                        key={p.id}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
                         style={{
-                          background: done ? 'rgba(34,197,94,0.10)' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${done ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                          color: done ? '#4ade80' : '#6b7280',
-                        }}>
-                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={20} />
-                        <span className={done ? '' : 'animate-pulse'}>{done ? '✅' : '⏳'}</span>
-                        <span className="truncate">{p.nickname}</span>
+                          background:  done  ? 'rgba(34,197,94,0.10)' : isMe ? 'rgba(0,212,255,0.06)' : 'rgba(255,255,255,0.03)',
+                          border:      `1px solid ${done ? 'rgba(34,197,94,0.3)' : isMe ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                        }}
+                      >
+                        <AvatarSvg
+                          config={p.avatar_config ?? DEFAULT_AVATAR}
+                          size={26}
+                          pose={done ? 'answering' : 'idle'}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-bold" style={{ color: isMe ? '#00d4ff' : 'rgba(255,255,255,0.85)' }}>
+                            {p.nickname}
+                          </p>
+                          <p className="text-gray-500">{p.score.toLocaleString()} pts</p>
+                        </div>
+                        {done
+                          ? <span className="text-green-400 font-black">✓</span>
+                          : <span className="animate-pulse text-gray-600 text-base">⏳</span>
+                        }
                       </div>
                     )
                   })}
                 </div>
               </div>
-            )}
+            </div>
           </>
         )}
 
@@ -593,14 +641,14 @@ export default function PlayPage() {
                   const isMe      = p.id === playerId
                   return (
                     <div key={p.id} className="flex flex-col items-center gap-1" style={{ minWidth: 62 }}>
-                      {/* Avatar com animação de reação */}
+                      {/* Avatar com pose + animação CSS */}
                       <div className={isCorrect ? 'animate-correct' : 'animate-wrong'}>
-                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={52} />
+                        <AvatarSvg
+                          config={p.avatar_config ?? DEFAULT_AVATAR}
+                          size={56}
+                          pose={isCorrect ? 'correct' : 'wrong'}
+                        />
                       </div>
-                      {/* Emoji de reação */}
-                      <span className="text-xl" style={{ lineHeight: 1 }}>
-                        {isCorrect ? '😄' : '😢'}
-                      </span>
                       {/* Nome */}
                       <span
                         className="text-xs font-bold text-center truncate"
@@ -618,13 +666,18 @@ export default function PlayPage() {
               </div>
             </div>
 
-            {/* Resposta correta */}
-            <div className="rounded-2xl p-4" style={{ background: 'rgba(34,197,94,0.08)', border: '1.5px solid rgba(34,197,94,0.35)' }}>
-              <p className="text-xs text-green-400 font-black mb-2 uppercase tracking-widest">Resposta correta</p>
-              <p className="font-bold text-white">{currentQuestion.options[roundResult.correct_index]}</p>
-              {currentQuestion.explanation && (
-                <p className="text-sm text-gray-400 mt-2 leading-relaxed">{currentQuestion.explanation}</p>
-              )}
+            {/* Apresentador ao lado da resposta correta */}
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <HostCharacter pose={hostPose} size={58} />
+              </div>
+              <div className="flex-1 rounded-2xl p-3.5" style={{ background: 'rgba(34,197,94,0.08)', border: '1.5px solid rgba(34,197,94,0.35)' }}>
+                <p className="text-xs text-green-400 font-black mb-2 uppercase tracking-widest">Resposta correta</p>
+                <p className="font-bold text-white">{currentQuestion.options[roundResult.correct_index]}</p>
+                {currentQuestion.explanation && (
+                  <p className="text-sm text-gray-400 mt-2 leading-relaxed">{currentQuestion.explanation}</p>
+                )}
+              </div>
             </div>
 
             {/* Pontos desta pergunta — todos os jogadores */}
@@ -664,25 +717,28 @@ export default function PlayPage() {
               </div>
             </div>
 
-            {/* Placar geral acumulado */}
+            {/* Ranking da fase atual */}
             <div>
               <p className="text-xs uppercase tracking-widest font-black mb-2" style={{ color: 'rgba(168,85,247,0.75)' }}>
-                🏆 Placar geral
+                🏆 Ranking — Fase {currentFase}
               </p>
               <div className="space-y-1.5">
-                {[...players].sort((a, b) => b.score - a.score).map((p, i) => {
-                  const EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
-                  return (
-                    <div key={p.id}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${p.id === playerId ? 'border-2' : 'border border-white/10'}`}
-                      style={{ background: p.id === playerId ? 'rgba(168,85,247,0.06)' : 'rgba(255,255,255,0.03)', borderColor: p.id === playerId ? '#a855f7' : undefined }}>
-                      <span className="text-base w-6">{EMOJIS[i] ?? `${i+1}`}</span>
-                      <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
-                      <span className="flex-1 text-sm font-semibold">{p.nickname}</span>
-                      <span className="font-black text-purple-300">{p.score.toLocaleString()}</span>
-                    </div>
-                  )
-                })}
+                {[...players]
+                  .sort((a, b) => (phaseEarned[b.id] ?? 0) - (phaseEarned[a.id] ?? 0))
+                  .map((p, i) => {
+                    const EMOJIS    = ['🥇', '🥈', '🥉', '4️⃣']
+                    const phaseScore = phaseEarned[p.id] ?? 0
+                    return (
+                      <div key={p.id}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${p.id === playerId ? 'border-2' : 'border border-white/10'}`}
+                        style={{ background: p.id === playerId ? 'rgba(168,85,247,0.06)' : 'rgba(255,255,255,0.03)', borderColor: p.id === playerId ? '#a855f7' : undefined }}>
+                        <span className="text-base w-6">{EMOJIS[i] ?? `${i+1}`}</span>
+                        <AvatarSvg config={p.avatar_config ?? DEFAULT_AVATAR} size={24} />
+                        <span className="flex-1 text-sm font-semibold">{p.nickname}</span>
+                        <span className="font-black text-purple-300">{phaseScore.toLocaleString()}</span>
+                      </div>
+                    )
+                  })}
               </div>
             </div>
 
