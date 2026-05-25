@@ -382,9 +382,15 @@ export function AvatarSvg({ config, size = 64, pose = 'idle', donkeyStage = 0 }:
   )
 }
 
-// ─── Burro completo (Stage 4) ────────────────────────────────────────────────
-function DonkeyAvatar({ config, size }: { config: AvatarConfig; size: number }) {
-  const { skinTone, hairColor, shirtColor, pantsColor } = config
+// ─── Burro completo (Stage 3+) — cores fixas de burro real ──────────────────
+function DonkeyAvatar({ size }: { config: AvatarConfig; size: number }) {
+  // Paleta de burro cinza real
+  const body   = '#8a8fa8'   // cinza azulado (corpo/cabeça)
+  const dark   = '#5a5e72'   // cinza escuro (pernas, detalhes)
+  const mane   = '#4a4a5a'   // quase preto (juba e rabo)
+  const muzzle = '#c8c4b8'   // creme claro (focinho)
+  const hoof   = '#1a1a2e'   // preto azulado (cascos)
+  const innerE = '#c4939e'   // rosado (interior da orelha)
 
   return (
     <svg
@@ -394,91 +400,87 @@ function DonkeyAvatar({ config, size }: { config: AvatarConfig; size: number }) 
       style={{ display: 'block', overflow: 'visible' }}
     >
       {/* Sombra */}
-      <ellipse cx="40" cy="106" rx="18" ry="3" fill="rgba(0,0,0,0.12)" />
+      <ellipse cx="40" cy="106" rx="18" ry="3" fill="rgba(0,0,0,0.18)" />
 
       {/* Rabo (antes do corpo) */}
       <path
         d="M 60,62 C 70,55 76,62 73,72 C 70,82 62,88 58,80"
-        stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none"
+        stroke={mane} strokeWidth="5" strokeLinecap="round" fill="none"
       />
-      <ellipse cx="57.5" cy="80" rx="5.5" ry="4" fill={hairColor} />
+      <ellipse cx="57.5" cy="80" rx="5.5" ry="4" fill={mane} />
 
       {/* Pernas */}
-      <rect x="27" y="78" width="11" height="24" rx="5.5" fill={pantsColor} />
-      <rect x="42" y="78" width="11" height="24" rx="5.5" fill={pantsColor} />
+      <rect x="27" y="78" width="11" height="24" rx="5.5" fill={dark} />
+      <rect x="42" y="78" width="11" height="24" rx="5.5" fill={dark} />
       {/* Cascos */}
-      <ellipse cx="32.5" cy="103" rx="9"   ry="4.5" fill="#1a1a1a" />
-      <ellipse cx="47.5" cy="103" rx="9"   ry="4.5" fill="#1a1a1a" />
-      <ellipse cx="32.5" cy="101" rx="6.5" ry="3"   fill="#2e2e2e" />
-      <ellipse cx="47.5" cy="101" rx="6.5" ry="3"   fill="#2e2e2e" />
+      <ellipse cx="32.5" cy="103" rx="9"   ry="4.5" fill={hoof} />
+      <ellipse cx="47.5" cy="103" rx="9"   ry="4.5" fill={hoof} />
+      <ellipse cx="32.5" cy="101" rx="6.5" ry="3"   fill="#2e2e42" />
+      <ellipse cx="47.5" cy="101" rx="6.5" ry="3"   fill="#2e2e42" />
 
       {/* Corpo */}
-      <rect x="23" y="50" width="34" height="28" rx="9" fill={shirtColor} />
-      <path d="M35,50 L40,57 L45,50" fill="rgba(0,0,0,0.10)" />
-      <line x1="40" y1="57" x2="40" y2="76" stroke="rgba(0,0,0,0.08)" strokeWidth="1.5" />
+      <rect x="23" y="50" width="34" height="28" rx="9" fill={body} />
+      {/* Barriga levemente mais clara */}
+      <ellipse cx="40" cy="64" rx="12" ry="9" fill={muzzle} opacity="0.25" />
 
-      {/* Braços caídos (triste) */}
+      {/* Patas dianteiras (braços caídos) */}
       <g transform="rotate(20, 27, 52)">
-        <rect x="10" y="50" width="14" height="24" rx="7" fill={shirtColor} />
-        <ellipse cx="17" cy="76" rx="7" ry="5.5" fill={skinTone} />
+        <rect x="10" y="50" width="13" height="24" rx="6.5" fill={dark} />
+        <ellipse cx="16.5" cy="75" rx="6.5" ry="5" fill={hoof} />
       </g>
       <g transform="rotate(-20, 53, 52)">
-        <rect x="56" y="50" width="14" height="24" rx="7" fill={shirtColor} />
-        <ellipse cx="63" cy="76" rx="7" ry="5.5" fill={skinTone} />
+        <rect x="57" y="50" width="13" height="24" rx="6.5" fill={dark} />
+        <ellipse cx="63.5" cy="75" rx="6.5" ry="5" fill={hoof} />
       </g>
 
       {/* Pescoço */}
-      <rect x="35" y="46" width="10" height="7" rx="3" fill={skinTone} />
+      <rect x="34" y="44" width="12" height="10" rx="4" fill={body} />
 
-      {/* ── Orelhas de burro longas (desenhadas ANTES da cabeça) ────────────── */}
-      {/* Esquerda — cinza de burro */}
-      <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill="#8a8fa8" />
-      <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19"    fill="#c4a0a8" opacity="0.85" />
+      {/* ── Orelhas de burro longas (ANTES da cabeça) ── */}
+      {/* Esquerda */}
+      <path d="M 18,22 Q 12,7 14,-3 Q 19,-10 25,-3 Q 28,7 27,20" fill={body} />
+      <path d="M 19,20 Q 14,8 16,0 Q 20,-6 23,0 Q 25,9 24,19"    fill={innerE} opacity="0.85" />
       {/* Direita */}
-      <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill="#8a8fa8" />
-      <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19"    fill="#c4a0a8" opacity="0.85" />
+      <path d="M 62,22 Q 68,7 66,-3 Q 61,-10 55,-3 Q 52,7 53,20" fill={body} />
+      <path d="M 61,20 Q 66,8 64,0 Q 60,-6 57,0 Q 55,9 56,19"    fill={innerE} opacity="0.85" />
 
       {/* Cabeça */}
-      <circle cx="40" cy="26" r="23" fill={skinTone} />
+      <circle cx="40" cy="26" r="23" fill={body} />
 
-      {/* Juba / crina no topo (hairColor) */}
+      {/* Juba no topo */}
       <path
-        d="M 23,14 Q 28,7 32,10 Q 36,4 40,7 Q 44,4 48,10 Q 52,7 57,14"
-        stroke={hairColor} strokeWidth="5.5" strokeLinecap="round" fill="none"
+        d="M 22,14 Q 27,7 31,10 Q 35,4 40,7 Q 45,4 49,10 Q 53,7 58,14"
+        stroke={mane} strokeWidth="5.5" strokeLinecap="round" fill="none"
       />
 
-      {/* Focinho / foçinho arredondado */}
-      <ellipse cx="40" cy="37" rx="10" ry="7" fill={skinTone} />
-      <ellipse cx="40" cy="37" rx="10" ry="7" fill="rgba(255,210,190,0.35)" />
+      {/* Focinho arredondado */}
+      <ellipse cx="40" cy="37" rx="11" ry="8" fill={muzzle} />
 
       {/* Sobrancelhas preocupadas */}
-      <path d="M24,14 Q30,17 34,14" stroke={hairColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <path d="M46,14 Q50,17 56,14" stroke={hairColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M24,14 Q30,17 34,14" stroke={mane} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M46,14 Q50,17 56,14" stroke={mane} strokeWidth="2.5" fill="none" strokeLinecap="round" />
 
       {/* Olhos tristes com lágrimas */}
       <ellipse cx="30" cy="24" rx="5.5" ry="6.5" fill="white" />
       <ellipse cx="50" cy="24" rx="5.5" ry="6.5" fill="white" />
-      <circle  cx="30" cy="25" r="3.8"  fill="#6366f1" />
-      <circle  cx="50" cy="25" r="3.8"  fill="#6366f1" />
-      <circle  cx="30" cy="25" r="2.2"  fill="#12122a" />
-      <circle  cx="50" cy="25" r="2.2"  fill="#12122a" />
+      <circle  cx="30" cy="25" r="3.8"  fill="#4a3a2a" />
+      <circle  cx="50" cy="25" r="3.8"  fill="#4a3a2a" />
+      <circle  cx="30" cy="25" r="2.2"  fill="#0a0808" />
+      <circle  cx="50" cy="25" r="2.2"  fill="#0a0808" />
       <circle  cx="31.5" cy="22.5" r="1.4" fill="white" />
       <circle  cx="51.5" cy="22.5" r="1.4" fill="white" />
+      {/* Lágrimas */}
       <path d="M29,32 Q27,37 29,40 Q31,40 31,37 Q31,32 29,32 Z" fill="rgba(120,190,255,0.82)" />
       <path d="M51,32 Q49,37 51,40 Q53,40 53,37 Q53,32 51,32 Z" fill="rgba(120,190,255,0.82)" />
 
-      {/* Bochechas */}
-      <ellipse cx="19" cy="33" rx="6" ry="4" fill="rgba(255,100,130,0.18)" />
-      <ellipse cx="61" cy="33" rx="6" ry="4" fill="rgba(255,100,130,0.18)" />
-
       {/* Narinas no focinho */}
-      <ellipse cx="36.5" cy="39" rx="2.2" ry="1.8" fill="rgba(0,0,0,0.22)" />
-      <ellipse cx="43.5" cy="39" rx="2.2" ry="1.8" fill="rgba(0,0,0,0.22)" />
+      <ellipse cx="36.5" cy="39.5" rx="2.4" ry="2"   fill="rgba(0,0,0,0.28)" />
+      <ellipse cx="43.5" cy="39.5" rx="2.4" ry="2"   fill="rgba(0,0,0,0.28)" />
 
       {/* Boca triste */}
-      <path d="M33,44 Q40,40 47,44" stroke="#2c1a0a" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M33,44 Q40,40 47,44" stroke="#3a2a1a" strokeWidth="2" fill="none" strokeLinecap="round" />
 
-      {/* Nariz de palhaço (SEMPRE no stage 4) */}
+      {/* Nariz de palhaço (sempre presente no burro) */}
       <circle cx="40" cy="35" r="5.5" fill="#ef4444" />
       <circle cx="38.5" cy="33.5" r="1.8" fill="rgba(255,255,255,0.45)" />
 
