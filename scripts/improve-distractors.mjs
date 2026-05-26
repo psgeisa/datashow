@@ -39,30 +39,58 @@ if (!GEMINI_KEY) {
   process.exit(1)
 }
 
-// ── Chamar Gemini via REST (v1) — sem depender do SDK ─────────────────────
-// O SDK @google/generative-ai v0.21 usa v1beta que não suporta modelos novos.
-// Usando fetch direto na v1 funciona com gemini-1.5-flash no free tier.
-async function callGeminiRaw(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
-    }),
-  })
+// ── Auto-detectar modelo disponível ──────────────────────────────────────
+// Preferência: modelos flash (rápidos/baratos). Usa o primeiro com generateContent.
+const MODEL_PREFERENCES = [
+  'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash',
+  'gemini-1.5-flash-001', 'gemini-1.5-flash-002', 'gemini-1.5-pro',
+  'gemini-2.5-flash', 'gemini-pro',
+]
 
-  if (!res.ok) {
-    const body = await res.text()
-    const err  = new Error(`HTTP ${res.status}: ${body}`)
-    err.status = res.status
-    err.body   = body
-    throw err
-  }
-
+async function detectModel() {
+  const res  = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_KEY}`)
   const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const available = new Set(
+    (data.models ?? [])
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => m.name.replace('models/', ''))
+  )
+  if (available.size === 0) throw new Error('Nenhum modelo com generateContent disponível para esta chave.')
+  const preferred = MODEL_PREFERENCES.find(m => available.has(m))
+  const chosen    = preferred ?? [...available][0]
+  console.log(`  🤖  Modelo detectado: ${chosen}`)
+  return chosen
+}
+
+// ── Chamar Gemini via REST — sem depender do SDK ──────────────────────────
+let ACTIVE_MODEL = null   // preenchido em main()
+
+async function callGeminiRaw(prompt) {
+  // Tenta v1beta primeiro (suporta mais modelos), fallback para v1
+  for (const apiVer of ['v1beta', 'v1']) {
+    const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${ACTIVE_MODEL}:generateContent?key=${GEMINI_KEY}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+      }),
+    })
+
+    if (res.status === 404 && apiVer === 'v1beta') continue   // tenta v1
+    if (!res.ok) {
+      const body = await res.text()
+      const err  = new Error(`HTTP ${res.status}: ${body}`)
+      err.status = res.status
+      err.body   = body
+      throw err
+    }
+
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  }
+  throw new Error('Modelo não encontrado em v1beta nem v1')
 }
 
 // ── Fix escapes LaTeX inválidos em JSON gerado por AI ─────────────────────
@@ -223,6 +251,15 @@ async function main() {
   const questionsDir = join(ROOT, 'data', 'questions')
   if (!existsSync(questionsDir)) {
     console.error('\n❌  data/questions/ não encontrado.')
+    process.exit(1)
+  }
+
+  // Detectar modelo disponível para esta chave
+  try {
+    ACTIVE_MODEL = await detectModel()
+  } catch (e) {
+    console.error(`\n❌  ${e.message}`)
+    console.error('    Crie uma chave em: https://aistudio.google.com/apikey')
     process.exit(1)
   }
 
