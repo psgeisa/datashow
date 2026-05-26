@@ -95,6 +95,9 @@ export default function PlayPage() {
   // ── Estágios de degradação (burro) por jogador ─────────────────────────────
   const [playerDonkeyStages, setPlayerDonkeyStages] = useState<Record<string, 0|1|2|3|4>>({})
 
+  // ── Supertópicos disponíveis (com questões suficientes no banco) ───────────
+  const [availableSuperTopics, setAvailableSuperTopics] = useState<string[] | null>(null)
+
   // ── Áudio ──────────────────────────────────────────────────────────────────
   const musicRef = useRef<MusicEngine | null>(null)
   const sfxRef   = useRef<SoundFX | null>(null)
@@ -241,6 +244,15 @@ export default function PlayPage() {
     return () => clearTimeout(announcTimer)
   }, [pendingPhaseSetup, isHost])
 
+  // Buscar supertópicos disponíveis ao entrar na tela de escolha
+  useEffect(() => {
+    if (phase !== 'choosing_category') return
+    fetch('/api/game/available-topics')
+      .then(r => r.json())
+      .then(data => setAvailableSuperTopics(data.available ?? null))
+      .catch(() => setAvailableSuperTopics(null)) // null = mostra todos (fallback)
+  }, [phase])
+
   // HOST: broadcast CHOOSING_CATEGORY fase 1
   const initBroadcastedRef = useRef(false)
   useEffect(() => {
@@ -384,6 +396,10 @@ export default function PlayPage() {
     const chooserPlayer  = players.find(p => p.id === chooserPlayerId)
     const announcedST    = CHOOSABLE_SUPERTOPICS.find(s => s.id === pendingPhaseSetup?.super_topic)
     const isAnnouncing   = !!pendingPhaseSetup     // supertopic chosen, awaiting API call
+    // Filtra apenas supertópicos com questões suficientes (null = ainda carregando → mostra todos)
+    const choosableSTs   = availableSuperTopics
+      ? CHOOSABLE_SUPERTOPICS.filter(s => availableSuperTopics.includes(s.id))
+      : CHOOSABLE_SUPERTOPICS
 
     return (
       <main className="relative min-h-screen flex flex-col items-center justify-center p-4 text-white overflow-hidden" style={studioBg} onClick={warmUpAudio}>
@@ -435,7 +451,10 @@ export default function PlayPage() {
 
             {isChooser ? (
               <div className="space-y-2.5">
-                {CHOOSABLE_SUPERTOPICS.map((st, i) => (
+                {availableSuperTopics === null && (
+                  <p className="text-gray-500 text-xs text-center animate-pulse py-2">Carregando temas disponíveis...</p>
+                )}
+                {choosableSTs.map((st, i) => (
                   <button
                     key={st.id}
                     onClick={() => handleChooseSupertopic(st.id)}
