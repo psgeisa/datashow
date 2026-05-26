@@ -212,8 +212,36 @@ async function main() {
   console.log()
 
   // ── Limpar questões existentes por super_topic (idempotente) ──────────────
+  // Ordem obrigatória: 1) deletar game_questions que referenciam as questões
+  //                    2) deletar as questões (evita FK violation)
   console.log('🗑️   Limpando questões existentes por super_topic...')
   for (const superTopic of Object.keys(bySuperTopic)) {
+    // 1. Buscar IDs das questões que serão deletadas
+    const { data: toDelete, error: fetchErr } = await supabase
+      .from('questions')
+      .select('id')
+      .eq('super_topic', superTopic)
+      .eq('is_ai_generated', false)
+
+    if (fetchErr) {
+      console.warn(`  ⚠️  Erro ao buscar "${superTopic}": ${fetchErr.message}`)
+      continue
+    }
+
+    if (toDelete && toDelete.length > 0) {
+      const ids = toDelete.map(q => q.id)
+
+      // 2. Remover referências em game_questions primeiro
+      const { error: gqErr } = await supabase
+        .from('game_questions')
+        .delete()
+        .in('question_id', ids)
+      if (gqErr) {
+        console.warn(`  ⚠️  Erro ao limpar game_questions de "${superTopic}": ${gqErr.message}`)
+      }
+    }
+
+    // 3. Deletar as questões
     const { error } = await supabase
       .from('questions')
       .delete()
