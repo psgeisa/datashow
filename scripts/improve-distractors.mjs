@@ -10,7 +10,6 @@
 // Após concluir, rode: npm run seed
 // ============================================================
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -40,11 +39,31 @@ if (!GEMINI_KEY) {
   process.exit(1)
 }
 
-const genAI  = new GoogleGenerativeAI(GEMINI_KEY)
-const model  = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash-latest',
-  generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
-})
+// ── Chamar Gemini via REST (v1) — sem depender do SDK ─────────────────────
+// O SDK @google/generative-ai v0.21 usa v1beta que não suporta modelos novos.
+// Usando fetch direto na v1 funciona com gemini-1.5-flash no free tier.
+async function callGeminiRaw(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    const err  = new Error(`HTTP ${res.status}: ${body}`)
+    err.status = res.status
+    err.body   = body
+    throw err
+  }
+
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+}
 
 // ── Fix escapes LaTeX inválidos em JSON gerado por AI ─────────────────────
 // Igual ao seed-questions.mjs — necessário para ler os arquivos corretamente
@@ -112,15 +131,14 @@ Responda APENAS com JSON puro (sem markdown, sem \`\`\`):
   // Retry até 3x com espera automática em caso de 429
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const result    = await model.generateContent(prompt)
-      const text      = result.response.text()
+      const text      = await callGeminiRaw(prompt)
       const jsonMatch = text.match(/\[[\s\S]*?\]/)
       if (!jsonMatch) throw new Error('JSON não encontrado na resposta do Gemini')
       return JSON.parse(jsonMatch[0])
     } catch (err) {
-      const is429   = err?.message?.includes('429') || err?.message?.includes('Too Many Requests')
+      const is429   = err?.status === 429 || err?.message?.includes('429')
       const retryMs = (() => {
-        const match = err?.message?.match(/retryDelay["\s:]+([0-9.]+)s/)
+        const match = (err?.body ?? err?.message ?? '').match(/"retryDelay"\s*:\s*"([0-9.]+)s"/)
         return match ? Math.ceil(parseFloat(match[1])) * 1000 + 2000 : 65000
       })()
       if (is429 && attempt < 3) {
