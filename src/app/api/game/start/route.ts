@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { LOCAL_QUESTIONS } from '@/lib/game/questions'
-import { computeSuperTopic } from '@/lib/game/supertopics'
 
-// DB migration (run once in Supabase SQL editor):
-// ALTER TABLE questions ADD COLUMN IF NOT EXISTS super_topic TEXT DEFAULT 'machine_learning';
+// As questões são gerenciadas via seed script (scripts/seed-questions.mjs)
+// e ficam persistidas no Supabase. NÃO deletar/reinserir questões aqui.
 
 export async function POST(req: NextRequest) {
   const { room_code, session_id } = await req.json()
@@ -17,23 +15,18 @@ export async function POST(req: NextRequest) {
   if (room.host_session_id !== session_id) return NextResponse.json({ error: 'Apenas o host pode iniciar' }, { status: 403 })
   if (room.status !== 'waiting') return NextResponse.json({ error: 'Jogo já iniciado' }, { status: 409 })
 
-  // ── 1. Sync perguntas locais (sempre re-sincroniza para garantir super_topic) ─
-  await supabase.from('questions').delete().eq('is_ai_generated', false)
-  await supabase.from('questions').insert(
-    LOCAL_QUESTIONS.map(q => ({
-      category:      q.category,
-      difficulty:    q.difficulty,
-      type:          q.type,
-      question:      q.question,
-      options:       q.options,
-      correct_index: q.correct_index,
-      explanation:   q.explanation ?? null,
-      code_snippet:  q.code_snippet ?? null,
-      meme_context:  q.meme_context ?? null,
-      super_topic:   computeSuperTopic(q.category, q.question),
-      is_ai_generated: false,
-    }))
-  )
+  // ── 1. Verificar se há questões no banco ────────────────────────────────
+  const { count } = await supabase
+    .from('questions')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_ai_generated', false)
+
+  if (!count || count < 10) {
+    return NextResponse.json(
+      { error: 'Banco de questões vazio. Execute scripts/seed-questions.mjs primeiro.' },
+      { status: 500 }
+    )
+  }
 
   // ── 2. Buscar 1º jogador (será o chooser da fase 1) ──────────────────────
   const { data: players } = await supabase

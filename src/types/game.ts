@@ -20,12 +20,18 @@ export type Difficulty = 'easy' | 'medium' | 'hard'
 
 // ── Supertópicos ────────────────────────────────────────────
 export type QuestionSuperTopic =
-  | 'ciencia_dados'
-  | 'cultura_dados'
-  | 'tipos_analise'
+  | 'ciencia_de_dados'
   | 'machine_learning'
-  | 'validacao'
-  | 'metricas'
+  | 'separacao_validacao_generalizacao'
+  | 'classificacao'
+  | 'clustering'
+  | 'regressao'
+  | 'estatistica'
+  | 'algebra_linear'
+  | 'programacao'
+  | 'metricas_de_validacao'
+  | 'data_preparation'
+  | 'generative_ai'
 
 export const CHOOSABLE_SUPERTOPICS: {
   id: QuestionSuperTopic
@@ -34,12 +40,18 @@ export const CHOOSABLE_SUPERTOPICS: {
   color: string
   description: string
 }[] = [
-  { id: 'ciencia_dados',    name: 'Ciência de Dados',          emoji: '🔬', color: '#3b82f6', description: 'Fundamentos, Python, SQL, IA Generativa' },
-  { id: 'cultura_dados',    name: 'Cultura de Dados',          emoji: '📊', color: '#f59e0b', description: 'Governança, KPIs, Power BI, Engenharia' },
-  { id: 'tipos_analise',    name: 'Tipos de Análise',          emoji: '🔍', color: '#10b981', description: 'Descritiva, Diagnóstica, Preditiva, Prescritiva' },
-  { id: 'machine_learning', name: 'Machine Learning',          emoji: '🤖', color: '#a855f7', description: 'Algoritmos, Classificação, Regressão, Clustering' },
-  { id: 'validacao',        name: 'Validação & Generalização', emoji: '✅', color: '#00d4ff', description: 'Treino/Teste, Cross-Validation, Leakage' },
-  { id: 'metricas',         name: 'Métricas de Avaliação',     emoji: '📈', color: '#ff6b35', description: 'AUC, KS, Precision, Recall, RMSE' },
+  { id: 'ciencia_de_dados',              name: 'Ciência de Dados',          emoji: '🔬', color: '#3b82f6', description: 'Fundamentos, ciclo de vida e cultura de dados' },
+  { id: 'machine_learning',              name: 'Machine Learning',           emoji: '🤖', color: '#a855f7', description: 'Fundamentos, vieses, regularização e ensembles' },
+  { id: 'separacao_validacao_generalizacao', name: 'Validação & Generalização', emoji: '✅', color: '#00d4ff', description: 'Treino/Teste, Cross-Validation, Leakage' },
+  { id: 'classificacao',                 name: 'Classificação',              emoji: '🎯', color: '#f97316', description: 'Logística, SVM, Decision Tree, Random Forest' },
+  { id: 'clustering',                    name: 'Clustering',                 emoji: '🔮', color: '#ec4899', description: 'K-Means, DBSCAN, hierárquico, GMM' },
+  { id: 'regressao',                     name: 'Regressão',                  emoji: '📈', color: '#22c55e', description: 'Linear, Ridge, Lasso, ElasticNet, Poisson' },
+  { id: 'estatistica',                   name: 'Estatística',                emoji: '📊', color: '#f59e0b', description: 'Distribuições, testes de hipótese, inferência' },
+  { id: 'algebra_linear',                name: 'Álgebra Linear',             emoji: '🧮', color: '#6366f1', description: 'Vetores, matrizes, autovalores, decomposições' },
+  { id: 'programacao',                   name: 'Programação',                emoji: '💻', color: '#64748b', description: 'Python, Pandas, NumPy, algoritmos e estruturas' },
+  { id: 'metricas_de_validacao',         name: 'Métricas de Validação',      emoji: '📏', color: '#ef4444', description: 'AUC, KS, Precision, Recall, RMSE, MAE' },
+  { id: 'data_preparation',              name: 'Preparação de Dados',        emoji: '🧹', color: '#14b8a6', description: 'Missings, outliers, encoding, PCA, feature selection' },
+  { id: 'generative_ai',                 name: 'IA Generativa',              emoji: '✨', color: '#d946ef', description: 'LLMs, RAG, Embeddings, Prompt Engineering, RLHF' },
 ]
 
 // ── Personagem ──────────────────────────────────────────────
@@ -89,8 +101,9 @@ export interface Player {
 // ── Pergunta (completa, só servidor) ────────────────────────
 export interface Question {
   id: string
-  category: QuestionCategory
-  super_topic?: string
+  category: string
+  super_topic?: QuestionSuperTopic
+  topic?: string
   difficulty: Difficulty
   type: QuestionType
   question: string

@@ -48,20 +48,24 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 -- ── PERGUNTAS ────────────────────────────────────────────────
+-- Questões populadas via: node scripts/seed-questions.mjs
+-- (não inserir manualmente — usar seed script)
 CREATE TABLE IF NOT EXISTS questions (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  category       TEXT NOT NULL CHECK (category IN ('sql','python','ml','stats','powerbi','azure','data_eng','databricks','meme')),
-  difficulty     TEXT DEFAULT 'medium' CHECK (difficulty IN ('easy','medium','hard')),
-  type           TEXT DEFAULT 'multiple_choice' CHECK (type IN ('multiple_choice','code','debug','chart','meme')),
-  question       TEXT NOT NULL,
-  options        JSONB NOT NULL,
-  correct_index  INTEGER NOT NULL CHECK (correct_index BETWEEN 0 AND 3),
-  explanation    TEXT,
-  code_snippet   TEXT,
-  meme_context   TEXT,
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category        TEXT NOT NULL DEFAULT 'data_science',
+  super_topic     TEXT,                    -- módulo temático escolhível no jogo
+  topic           TEXT,                    -- subtópico dentro do super_topic
+  difficulty      TEXT DEFAULT 'medium' CHECK (difficulty IN ('easy','medium','hard')),
+  type            TEXT DEFAULT 'multiple_choice',
+  question        TEXT NOT NULL,
+  options         JSONB NOT NULL,
+  correct_index   INTEGER NOT NULL CHECK (correct_index BETWEEN 0 AND 3),
+  explanation     TEXT,
+  code_snippet    TEXT,
+  meme_context    TEXT,
   is_ai_generated BOOLEAN DEFAULT FALSE,
-  times_used     INTEGER DEFAULT 0,
-  created_at     TIMESTAMPTZ DEFAULT NOW()
+  times_used      INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── PERGUNTAS POR RODADA ─────────────────────────────────────
@@ -102,6 +106,12 @@ CREATE POLICY "game_questions_all" ON game_questions FOR ALL USING (true) WITH C
 CREATE POLICY "answers_all"        ON answers        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "questions_read"     ON questions      FOR SELECT USING (true);
 CREATE POLICY "questions_insert"   ON questions      FOR INSERT WITH CHECK (true);
+CREATE POLICY "questions_delete"   ON questions      FOR DELETE USING (true);
+
+-- ── ÍNDICES ──────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_questions_super_topic ON questions(super_topic);
+CREATE INDEX IF NOT EXISTS idx_questions_difficulty  ON questions(difficulty);
+CREATE INDEX IF NOT EXISTS idx_questions_times_used  ON questions(times_used);
 
 -- ── FUNÇÃO: decrementar ability_uses ────────────────────────
 CREATE OR REPLACE FUNCTION decrement_ability_uses(p_player_id UUID)
