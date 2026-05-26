@@ -42,9 +42,35 @@ if (!GEMINI_KEY) {
 
 const genAI  = new GoogleGenerativeAI(GEMINI_KEY)
 const model  = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash',
+  model: 'gemini-2.0-flash',
   generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
 })
+
+// ── Fix escapes LaTeX inválidos em JSON gerado por AI ─────────────────────
+// Igual ao seed-questions.mjs — necessário para ler os arquivos corretamente
+function fixJsonEscapes(text) {
+  const VALID_ESCAPE = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'])
+  let result = ''
+  let i = 0
+  while (i < text.length) {
+    if (text[i] !== '\\') { result += text[i++]; continue }
+    const next = text[i + 1]
+    if (next === undefined) { result += '\\\\'; i++; continue }
+    if (next === 'u') {
+      const hex = text.substring(i + 2, i + 6)
+      if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+        result += text.substring(i, i + 6); i += 6
+      } else {
+        result += '\\\\'; i++
+      }
+    } else if (VALID_ESCAPE.has(next)) {
+      result += text[i] + text[i + 1]; i += 2
+    } else {
+      result += '\\\\'; i++
+    }
+  }
+  return result
+}
 
 // ── Detectar questão desequilibrada ───────────────────────────────────────
 // Flageia quando a resposta correta é ≥50% mais longa que a média dos
@@ -92,7 +118,9 @@ Responda APENAS com JSON puro (sem markdown, sem \`\`\`):
 
 // ── Processar um arquivo JSON ─────────────────────────────────────────────
 async function processFile(filePath, fileName) {
-  const questions = JSON.parse(readFileSync(filePath, 'utf-8'))
+  const rawText   = readFileSync(filePath, 'utf-8')
+  const fixedText = fixJsonEscapes(rawText)
+  const questions = JSON.parse(fixedText)
 
   // Identificar quais precisam de melhoria
   const toImprove = questions
