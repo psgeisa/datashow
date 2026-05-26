@@ -42,7 +42,7 @@ if (!GEMINI_KEY) {
 
 const genAI  = new GoogleGenerativeAI(GEMINI_KEY)
 const model  = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash',
+  model: 'gemini-1.5-flash-latest',
   generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
 })
 
@@ -109,11 +109,30 @@ Responda APENAS com JSON puro (sem markdown, sem \`\`\`):
   { "id": 0, "distractors": ["dist1", "dist2", "dist3"] }
 ]`
 
-  const result    = await model.generateContent(prompt)
-  const text      = result.response.text()
-  const jsonMatch = text.match(/\[[\s\S]*?\]/)
-  if (!jsonMatch) throw new Error('JSON não encontrado na resposta do Gemini')
-  return JSON.parse(jsonMatch[0])
+  // Retry até 3x com espera automática em caso de 429
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result    = await model.generateContent(prompt)
+      const text      = result.response.text()
+      const jsonMatch = text.match(/\[[\s\S]*?\]/)
+      if (!jsonMatch) throw new Error('JSON não encontrado na resposta do Gemini')
+      return JSON.parse(jsonMatch[0])
+    } catch (err) {
+      const is429   = err?.message?.includes('429') || err?.message?.includes('Too Many Requests')
+      const retryMs = (() => {
+        const match = err?.message?.match(/retryDelay["\s:]+([0-9.]+)s/)
+        return match ? Math.ceil(parseFloat(match[1])) * 1000 + 2000 : 65000
+      })()
+      if (is429 && attempt < 3) {
+        const waitSec = Math.round(retryMs / 1000)
+        process.stdout.write(`\n    ⏳  Rate limit — aguardando ${waitSec}s (tentativa ${attempt}/3)...`)
+        await new Promise(r => setTimeout(r, retryMs))
+        process.stdout.write('\r    ↺  Tentando novamente...                              ')
+      } else {
+        throw err
+      }
+    }
+  }
 }
 
 // ── Processar um arquivo JSON ─────────────────────────────────────────────
