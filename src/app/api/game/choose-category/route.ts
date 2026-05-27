@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
   if (room.host_session_id !== session_id) return NextResponse.json({ error: 'Apenas o host pode iniciar a fase' }, { status: 403 })
 
   const phaseNum: number = phase ?? room.current_phase ?? 1
-  const roundStart = (phaseNum - 1) * 10 + 1
-  const roundEnd   = phaseNum * 10
+  const roundStart = (phaseNum - 1) * 6 + 1
+  const roundEnd   = phaseNum * 6
 
   // ── IDs já usados neste jogo (outras fases) — não podem repetir ──────────
   const { data: usedGQs } = await supabase
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Fallback para categoria
-  if ((!pool || pool.length < 10) && category) {
+  if ((!pool || pool.length < 6) && category) {
     const { data } = await supabase
       .from('questions')
       .select('id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context')
@@ -60,24 +60,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Sem perguntas para o supertópico "${super_topic ?? category}"` }, { status: 500 })
   }
 
-  // ── Separar frescas (não usadas neste jogo) das já usadas ─────────────────
-  const fresh = pool.filter(q => !usedIds.has(q.id))
-  const reuse = pool.filter(q =>  usedIds.has(q.id))
-
-  // Prioriza frescas; completa com reuso se necessário
-  const candidates = fresh.length >= 10 ? fresh : [...fresh, ...reuse]
-
-  // Fisher-Yates shuffle nos candidatos
-  const shuffled = [...candidates]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  // ── Helper: Fisher-Yates shuffle ─────────────────────────────────────────
+  function fisherYates<T>(arr: T[]): T[] {
+    const a = [...arr]
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
   }
-  const selected = shuffled.slice(0, Math.min(10, shuffled.length))
 
-  if (selected.length < 10) {
-    return NextResponse.json({ error: `Perguntas insuficientes para o supertópico "${super_topic ?? category}" (${selected.length} disponíveis, precisam 10)` }, { status: 500 })
+  // ── Selecionar com distribuição 70/20/10 (4 easy, 1 medium, 1 hard) ───────
+  const TARGET = 6
+  const DISTRIB: [string, number][] = [['easy', 4], ['medium', 1], ['hard', 1]]
+
+  function pickByDiff(difficulty: string, n: number): any[] {
+    const all   = pool!.filter(q => q.difficulty === difficulty)
+    const fresh = all.filter(q => !usedIds.has(q.id))
+    const reuse = all.filter(q =>  usedIds.has(q.id))
+    // Prefer fresh questions; fall back to reused if needed
+    return fisherYates(fresh.length >= n ? fresh : [...fresh, ...reuse]).slice(0, n)
   }
+
+  let selected: any[] = []
+  for (const [diff, count] of DISTRIB) {
+    selected.push(...pickByDiff(diff, count))
+  }
+
+  // ── Fallback: fill remaining slots from any difficulty ────────────────────
+  if (selected.length < TARGET) {
+    const pickedIds = new Set(selected.map((q: any) => q.id))
+    const freshAny  = pool!.filter(q => !usedIds.has(q.id) && !pickedIds.has(q.id))
+    const reuseAny  = pool!.filter(q =>  usedIds.has(q.id) && !pickedIds.has(q.id))
+    const extra     = fisherYates([...freshAny, ...reuseAny]).slice(0, TARGET - selected.length)
+    selected = [...selected, ...extra]
+  }
+
+  if (selected.length < TARGET) {
+    return NextResponse.json({ error: `Perguntas insuficientes para o supertópico "${super_topic ?? category}" (${selected.length} disponíveis, precisam ${TARGET})` }, { status: 500 })
+  }
+
+  // Shuffle final to mix difficulties (avoids easy,easy,easy,easy,medium,hard ordering)
+  selected = fisherYates(selected).slice(0, TARGET)
 
   // ── Remover perguntas antigas desta fase (re-escolha) ─────────────────────
   await supabase.from('game_questions')

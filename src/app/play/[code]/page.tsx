@@ -70,8 +70,8 @@ export default function PlayPage() {
   const {
     room, players, currentQuestion, myPlayer, phase, timeLeft,
     roundResult, answeredThisRound, playersAnswered, eliminatedOptions,
-    peekData, doubleActive, currentFase, chooserPlayerId, phaseScores,
-    completedPhase, pendingPhaseSetup,
+    peekData, doubleActive, currentFase, chooserPlayerId, chooserOptions,
+    phaseScores, completedPhase, pendingPhaseSetup,
     isPaused, pausedById, pausedByNickname,
     playerAnswerReactions,
   } = state
@@ -80,7 +80,7 @@ export default function PlayPage() {
   const myChar    = getCharacter(myPlayer?.character_slug)
   const isChooser = myPlayer?.id === chooserPlayerId
   const totalFases = room?.total_phases ?? 4
-  const roundInPhase = room ? ((room.current_round - 1) % 10) + 1 : 1
+  const roundInPhase = room ? ((room.current_round - 1) % 6) + 1 : 1
 
   const { effectiveVolume } = useSettings()
 
@@ -97,6 +97,28 @@ export default function PlayPage() {
 
   // ── Supertópicos disponíveis (com questões suficientes no banco) ───────────
   const [availableSuperTopics, setAvailableSuperTopics] = useState<string[] | null>(null)
+
+  // ── Supertópicos já escolhidos neste jogo (rastreado pelo HOST) ────────────
+  const usedSuperTopicsRef = useRef<QuestionSuperTopic[]>([])
+
+  // ── Helper: 3 opções aleatórias para o escolhedor desta fase ──────────────
+  function computePhaseOptions(available: string[] | null, used: QuestionSuperTopic[]): QuestionSuperTopic[] {
+    const usedSet = new Set(used)
+    const fullList = available && available.length > 0
+      ? CHOOSABLE_SUPERTOPICS.filter(s => available.includes(s.id))
+      : CHOOSABLE_SUPERTOPICS
+    const remaining = fullList.filter(s => !usedSet.has(s.id)).map(s => s.id as QuestionSuperTopic)
+    // Shuffle remaining
+    const arr = [...remaining]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    if (arr.length >= 3) return arr.slice(0, 3)
+    // Not enough unused topics: pad from already-used ones
+    const extra = fullList.filter(s => usedSet.has(s.id)).map(s => s.id as QuestionSuperTopic)
+    return [...arr, ...extra].slice(0, 3)
+  }
 
   // ── Áudio ──────────────────────────────────────────────────────────────────
   const musicRef = useRef<MusicEngine | null>(null)
@@ -209,6 +231,15 @@ export default function PlayPage() {
     }
   }, [answeredThisRound])
 
+  // HOST: rastrear supertópicos já usados no jogo
+  useEffect(() => {
+    if (!isHost || !pendingPhaseSetup?.super_topic) return
+    const st = pendingPhaseSetup.super_topic
+    if (!usedSuperTopicsRef.current.includes(st)) {
+      usedSuperTopicsRef.current = [...usedSuperTopicsRef.current, st]
+    }
+  }, [pendingPhaseSetup])
+
   // ── HOST: reagir ao CATEGORY_CHOSEN → anunciar 4s → chamar API ───────────
   const pendingSetupRef = useRef<string | null>(null)
   useEffect(() => {
@@ -247,23 +278,29 @@ export default function PlayPage() {
   // Buscar supertópicos disponíveis ao entrar na tela de escolha
   useEffect(() => {
     if (phase !== 'choosing_category') return
+    const allIds = CHOOSABLE_SUPERTOPICS.map(s => s.id)
     fetch('/api/game/available-topics')
       .then(r => r.json())
-      .then(data => setAvailableSuperTopics(data.available ?? null))
-      .catch(() => setAvailableSuperTopics(null)) // null = mostra todos (fallback)
+      .then(data => setAvailableSuperTopics(data.available?.length ? data.available : allIds))
+      .catch(() => setAvailableSuperTopics(allIds)) // fallback: mostra todos
   }, [phase])
 
   // HOST: broadcast CHOOSING_CATEGORY fase 1
+  // Espera os supertópicos disponíveis carregarem antes de transmitir
   const initBroadcastedRef = useRef(false)
   useEffect(() => {
     if (!isHost || phase !== 'choosing_category' || !room || initBroadcastedRef.current) return
     if (currentFase !== 1) return
+    if (availableSuperTopics === null) return  // aguarda carregar
     initBroadcastedRef.current = true
     const ordered = [...players].sort((a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())
-    const chooser = ordered[(currentFase - 1) % Math.max(1, ordered.length)]
+    // 1 player: sempre o mesmo; 2+: escolhedor aleatório
+    const chooserIdx = ordered.length <= 1 ? 0 : Math.floor(Math.random() * ordered.length)
+    const chooser    = ordered[chooserIdx]
     if (!chooser) return
-    broadcast({ type: 'CHOOSING_CATEGORY', data: { phase: 1, chooser_player_id: chooser.id, chooser_nickname: chooser.nickname } })
-  }, [isHost, phase, players.length])
+    const options = computePhaseOptions(availableSuperTopics, usedSuperTopicsRef.current)
+    broadcast({ type: 'CHOOSING_CATEGORY', data: { phase: 1, chooser_player_id: chooser.id, chooser_nickname: chooser.nickname, options } })
+  }, [isHost, phase, players.length, availableSuperTopics])
 
   // HOST: auto-avança
   const revealTriggeredRef = useRef<number>(-1)
@@ -342,9 +379,12 @@ export default function PlayPage() {
         setTimeout(() => {
           if (nextData.next_phase > totalFases) return
           const ordered = [...players].sort((a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())
-          const chooser = ordered[(nextData.next_phase - 1) % Math.max(1, ordered.length)]
+          // 1 player: sempre o mesmo; 2+: escolhedor aleatório por fase
+          const chooserIdx = ordered.length <= 1 ? 0 : Math.floor(Math.random() * ordered.length)
+          const chooser    = ordered[chooserIdx]
           if (!chooser) return
-          broadcast({ type: 'CHOOSING_CATEGORY', data: { phase: nextData.next_phase, chooser_player_id: chooser.id, chooser_nickname: chooser.nickname } })
+          const options = computePhaseOptions(availableSuperTopics, usedSuperTopicsRef.current)
+          broadcast({ type: 'CHOOSING_CATEGORY', data: { phase: nextData.next_phase, chooser_player_id: chooser.id, chooser_nickname: chooser.nickname, options } })
         }, 12000)
       } else {
         broadcast({
@@ -369,7 +409,7 @@ export default function PlayPage() {
 
   const hostSpeech =
     phase === 'choosing_category' ? (isChooser ? 'Você escolhe o tema!' : 'Aguardando escolha do tema...') :
-    phase === 'question' ? `Pergunta ${roundInPhase} de 10` :
+    phase === 'question' ? `Pergunta ${roundInPhase} de 6` :
     phase === 'reveal' && myResult === 'correct' ? '🎉 Excelente!' :
     phase === 'reveal' && myResult === 'wrong'   ? 'Que pena! Vai na próxima!' :
     phase === 'phase_end' ? `Fase ${completedPhase} concluída!` :
@@ -396,10 +436,12 @@ export default function PlayPage() {
     const chooserPlayer  = players.find(p => p.id === chooserPlayerId)
     const announcedST    = CHOOSABLE_SUPERTOPICS.find(s => s.id === pendingPhaseSetup?.super_topic)
     const isAnnouncing   = !!pendingPhaseSetup     // supertopic chosen, awaiting API call
-    // Filtra apenas supertópicos com questões suficientes (null = ainda carregando → mostra todos)
-    const choosableSTs   = availableSuperTopics
-      ? CHOOSABLE_SUPERTOPICS.filter(s => availableSuperTopics.includes(s.id))
-      : CHOOSABLE_SUPERTOPICS
+    // Mostra as 3 opções enviadas pelo HOST; fallback para todos os disponíveis se ainda não recebeu
+    const choosableSTs = chooserOptions.length > 0
+      ? CHOOSABLE_SUPERTOPICS.filter(s => (chooserOptions as string[]).includes(s.id))
+      : availableSuperTopics
+        ? CHOOSABLE_SUPERTOPICS.filter(s => availableSuperTopics.includes(s.id))
+        : CHOOSABLE_SUPERTOPICS
 
     return (
       <main className="relative min-h-screen flex flex-col items-center justify-center p-4 text-white overflow-hidden" style={studioBg} onClick={warmUpAudio}>
@@ -451,7 +493,7 @@ export default function PlayPage() {
 
             {isChooser ? (
               <div className="space-y-2.5">
-                {availableSuperTopics === null && (
+                {chooserOptions.length === 0 && (
                   <p className="text-gray-500 text-xs text-center animate-pulse py-2">Carregando temas disponíveis...</p>
                 )}
                 {choosableSTs.map((st, i) => (
@@ -501,8 +543,8 @@ export default function PlayPage() {
   // FIM DE FASE
   // ═══════════════════════════════════════════════════════════════════════════
   if (phase === 'phase_end') {
-    const RANK_EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
-    const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32', '#888']
+    const RANK_EMOJIS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
+    const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32', '#888', '#888', '#888', '#888', '#888']
     const sortedPhase = [...phaseScores].sort((a, b) => b.phase_score - a.phase_score)
     const sortedTotal = [...phaseScores].sort((a, b) => b.total_score - a.total_score)
 
@@ -619,7 +661,7 @@ export default function PlayPage() {
             <span className="text-gray-400">Fase </span>
             <span className="text-cyan-400">{currentFase}</span>
             <span className="text-gray-600">/{totalFases}</span>
-            <span className="text-gray-600 ml-1">— P{roundInPhase}/10</span>
+            <span className="text-gray-600 ml-1">— P{roundInPhase}/6</span>
           </div>
 
           {phase === 'question' && (

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const completed_round = room.current_round
   const total_phases    = room.total_phases ?? 4
-  const total_rounds    = total_phases * 10
+  const total_rounds    = total_phases * 6
 
   // ── Fim de jogo ───────────────────────────────────────────────────────────
   if (completed_round >= total_rounds) {
@@ -29,12 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ finished: true })
   }
 
-  // ── Fim de fase (toda rodada múltipla de 10) ──────────────────────────────
-  if (completed_round > 0 && completed_round % 10 === 0) {
-    const completed_phase = Math.ceil(completed_round / 10)
+  // ── Fim de fase (toda rodada múltipla de 6) ───────────────────────────────
+  if (completed_round > 0 && completed_round % 6 === 0) {
+    const completed_phase = Math.ceil(completed_round / 6)
 
-    const phaseStart = (completed_phase - 1) * 10 + 1
-    const phaseEnd   = completed_phase * 10
+    const phaseStart = (completed_phase - 1) * 6 + 1
+    const phaseEnd   = completed_phase * 6
 
     const { data: answers } = await supabase
       .from('answers')

@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
     .select('*', { count: 'exact', head: true })
     .eq('room_id', room.id)
 
-  if ((count ?? 0) >= 4) {
-    return NextResponse.json({ error: 'Sala cheia (máx. 4 jogadores)' }, { status: 409 })
+  if ((count ?? 0) >= 8) {
+    return NextResponse.json({ error: 'Sala cheia (máx. 8 jogadores)' }, { status: 409 })
   }
 
   const session_id = nanoid(21)

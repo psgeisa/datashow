@@ -169,7 +169,7 @@ export type BroadcastPayload =
   | { type: 'GAME_FINISHED';   data: { final_scores: Player[] } }
   | { type: 'PLAYER_ANSWERED'; data: { player_id: string; nickname: string; reaction_type?: string } }
   | { type: 'ABILITY_USED';    data: { player_id: string; ability: AbilityType; eliminated?: number[] } }
-  | { type: 'CHOOSING_CATEGORY'; data: { phase: number; chooser_player_id: string; chooser_nickname: string } }
+  | { type: 'CHOOSING_CATEGORY'; data: { phase: number; chooser_player_id: string; chooser_nickname: string; options: QuestionSuperTopic[] } }
   | { type: 'CATEGORY_CHOSEN'; data: { phase: number; super_topic: QuestionSuperTopic; category_name: string } }
   | { type: 'PHASE_END';       data: { completed_phase: number; player_scores: PhaseScore[] } }
   | { type: 'GAME_PAUSED';     data: { paused_by_id: string; paused_by_nickname: string } }
@@ -194,6 +194,7 @@ export interface GameState {
   // Fase
   currentFase: number
   chooserPlayerId: string
+  chooserOptions: QuestionSuperTopic[]
   phaseScores: PhaseScore[]
   completedPhase: number
   pendingPhaseSetup: { phase: number; super_topic: QuestionSuperTopic; category_name: string } | null

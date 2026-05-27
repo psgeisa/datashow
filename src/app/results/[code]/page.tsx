@@ -7,8 +7,8 @@ import { AvatarSvg } from '@/components/game/AvatarSvg'
 import { DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
 import type { Player } from '@/types/game'
 
-const RANK_EMOJIS = ['🥇', '🥈', '🥉', '4️⃣']
-const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32', '#888']
+const RANK_EMOJIS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
+const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32', '#888', '#888', '#888', '#888', '#888']
 const FUN_TITLES = [
   'O Grande Oráculo dos Dados',
   'Senior Data Scientist Honorário',

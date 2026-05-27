@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { CHOOSABLE_SUPERTOPICS } from '@/types/game'
 
-// Mínimo de questões — mesma lógica do choose-category (exige >= 10)
-const MIN_QUESTIONS = 10
+// Mínimo de questões — mesma lógica do choose-category (exige >= 6)
+const MIN_QUESTIONS = 6
 
 export async function GET() {
   try {

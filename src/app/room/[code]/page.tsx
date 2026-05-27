@@ -102,7 +102,7 @@ export default function WaitingRoom() {
           })}
 
           {/* Slots vazios */}
-          {Array.from({ length: Math.max(0, 4 - players.length) }).map((_, i) => (
+          {Array.from({ length: Math.min(3, Math.max(0, 8 - players.length)) }).map((_, i) => (
             <div
               key={i}
               className="p-4 rounded-2xl border border-dashed border-white/10 text-center text-gray-600 text-sm"
@@ -122,7 +122,7 @@ export default function WaitingRoom() {
               background: !starting ? 'linear-gradient(135deg, #00d4ff, #a855f7)' : 'rgba(255,255,255,0.1)',
             }}
           >
-            {starting ? '🎬 Iniciando...' : `🚀 Iniciar Jogo! (${players.length}/4)`}
+            {starting ? '🎬 Iniciando...' : `🚀 Iniciar Jogo! (${players.length} jogador${players.length !== 1 ? 'es' : ''})`}
           </button>
         ) : (
           <div className="text-center">

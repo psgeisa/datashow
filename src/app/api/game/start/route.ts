@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     .select('*', { count: 'exact', head: true })
     .eq('is_ai_generated', false)
 
-  if (!count || count < 10) {
+  if (!count || count < 6) {
     return NextResponse.json(
       { error: 'Banco de questões vazio. Execute scripts/seed-questions.mjs primeiro.' },
       { status: 500 }

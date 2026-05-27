@@ -23,3 +23,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# questões geradas (ficam só no banco Supabase)
+data/questions/*.json
