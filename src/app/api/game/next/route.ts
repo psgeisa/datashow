@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   const { data: gq } = await supabase
     .from('game_questions')
-    .select('questions(id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context)')
+    .select('questions(id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context, image_urls)')
     .eq('room_id', room_id)
     .eq('round_number', next_round)
     .single()
@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
     id: q.id, category: q.category, difficulty: q.difficulty,
     type: q.type, question: q.question, options: shuffledOpts,
     explanation: q.explanation, code_snippet: q.code_snippet, meme_context: q.meme_context,
+    image_urls: q.image_urls,
   }
 
   return NextResponse.json({ finished: false, round: next_round, question, timer_seconds })

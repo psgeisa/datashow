@@ -113,6 +113,10 @@ function validate(q, fileName, idx) {
     errors.push(`difficulty inválida: "${q.difficulty}"`)
   if (q.type && q.type !== 'multiple_choice')
     errors.push(`type deve ser "multiple_choice", encontrado: "${q.type}"`)
+  if (q.image_urls !== undefined && q.image_urls !== null) {
+    if (!Array.isArray(q.image_urls) || q.image_urls.some(u => typeof u !== 'string'))
+      errors.push('image_urls deve ser array de strings')
+  }
 
   if (errors.length > 0) {
     console.warn(`  ⚠️  [${fileName}][${idx}]: ${errors.join(' | ')}`)
@@ -179,6 +183,7 @@ async function main() {
         explanation:     q.explanation?.trim() ?? null,
         code_snippet:    null,
         meme_context:    null,
+        image_urls:      q.image_urls ?? [],
         is_ai_generated: false,
         times_used:      0,
       })
@@ -259,6 +264,7 @@ async function main() {
   // ── Detectar capabilities do schema atual ────────────────────────────────
   // (funciona com schema antigo E novo, sem exigir migration prévia)
   let schemaHasTopic = true
+  let schemaHasImageUrls = true
   let categoryFallback = null // null = usar 'data_science'; string = usar esse valor
 
   {
@@ -269,6 +275,15 @@ async function main() {
       schemaHasTopic = false
       console.log('ℹ️   Coluna topic não existe ainda — será omitida neste seed.')
       console.log('    Rode supabase/migration_001_new_questions.sql para ativar o campo topic.\n')
+    }
+
+    // Probe: verificar se coluna image_urls existe
+    const { error: imgProbeErr } = await supabase
+      .from('questions').select('image_urls').limit(1)
+    if (imgProbeErr && (imgProbeErr.message.includes('image_urls') || imgProbeErr.message.includes('column'))) {
+      schemaHasImageUrls = false
+      console.log('ℹ️   Coluna image_urls não existe ainda — será omitida neste seed.')
+      console.log('    Rode supabase/migration_005_question_images.sql para ativar o campo image_urls.\n')
     }
 
     // Probe: verificar se category constraint ainda aceita 'data_science'
@@ -305,6 +320,7 @@ async function main() {
       times_used:      q.times_used,
     }
     if (schemaHasTopic) base.topic = q.topic
+    if (schemaHasImageUrls) base.image_urls = q.image_urls
     return base
   }
 

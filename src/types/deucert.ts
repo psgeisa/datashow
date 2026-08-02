@@ -51,6 +51,7 @@ export interface PublicQuestion {
   options: string[]
   code_snippet?: string | null
   meme_context?: string | null
+  image_urls?: string[] | null
 }
 
 export interface AnswerResult {

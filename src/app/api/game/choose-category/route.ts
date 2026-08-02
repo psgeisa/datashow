@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (super_topic) {
     const { data } = await supabase
       .from('questions')
-      .select('id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context')
+      .select('id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context, image_urls')
       .eq('super_topic', super_topic)
       .order('times_used', { ascending: true })
       .limit(120)
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if ((!pool || pool.length < 6) && category) {
     const { data } = await supabase
       .from('questions')
-      .select('id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context')
+      .select('id, category, difficulty, type, question, options, correct_index, explanation, code_snippet, meme_context, image_urls')
       .eq('category', category)
       .order('times_used', { ascending: true })
       .limit(120)
@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
       explanation: first.explanation,
       code_snippet: first.code_snippet,
       meme_context: first.meme_context,
+      image_urls: first.image_urls,
     },
   })
 }

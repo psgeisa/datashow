@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const { data: pool, error } = await supabase
     .from('questions')
-    .select('id, category, super_topic, topic, difficulty, type, question, options, correct_index, code_snippet, meme_context')
+    .select('id, category, super_topic, topic, difficulty, type, question, options, correct_index, code_snippet, meme_context, image_urls')
     .eq('super_topic', super_topic)
 
   if (error || !pool || pool.length === 0) {
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       options,
       code_snippet: q.code_snippet,
       meme_context: q.meme_context,
+      image_urls: q.image_urls,
     }
   })
 

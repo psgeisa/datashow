@@ -15,10 +15,13 @@ Coloque aqui os arquivos JSON de questões antes de executar o seed script.
     "question": "Texto da pergunta...",
     "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
     "correct_index": 2,
-    "explanation": "Explicação da resposta correta..."
+    "explanation": "Explicação da resposta correta...",
+    "image_urls": ["https://.../exhibit1.png"]
   }
 ]
 ```
+
+`image_urls` é opcional — só inclua quando a pergunta referenciar um exhibit/print (ex: AZ-104). Pode ter mais de uma URL. Requer a migration `supabase/migration_005_question_images.sql` aplicada no banco.
 
 ## Supertópicos válidos
 

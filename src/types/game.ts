@@ -114,6 +114,7 @@ export interface Question {
   explanation?: string
   code_snippet?: string
   meme_context?: string
+  image_urls?: string[] | null
   is_ai_generated: boolean
   times_used: number
   created_at: string

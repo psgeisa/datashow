@@ -67,6 +67,19 @@ export function QuestionCard({ question, onAnswer, answered, eliminatedOptions =
             {question.code_snippet}
           </pre>
         )}
+        {question.image_urls && question.image_urls.length > 0 && (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {question.image_urls.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={url}
+                alt={`Exhibit ${i + 1}`}
+                className="w-full rounded-xl border border-white/10 bg-black/30"
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Alternativas */}
