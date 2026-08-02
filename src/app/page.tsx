@@ -70,6 +70,13 @@ export default function Home() {
             </button>
           </div>
         )}
+
+        <button
+          onClick={() => router.push('/treino')}
+          className="w-full py-4 px-6 rounded-2xl font-black text-xl border border-white/20 hover:bg-white/10 transition-all duration-200 hover:scale-105 active:scale-95"
+        >
+          🎯 Treinar Sozinho
+        </button>
       </div>
 
       {/* Tech tags */}
