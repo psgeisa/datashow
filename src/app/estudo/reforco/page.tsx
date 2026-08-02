@@ -3,21 +3,24 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/deucert/ThemeToggle'
 import { CHOOSABLE_SUPERTOPICS, type TopicAvailability } from '@/types/deucert'
+import { useIdentity } from '@/lib/identity/useIdentity'
 
 export default function ReforcoPicker() {
   const router = useRouter()
   const [topics, setTopics] = useState<TopicAvailability[] | null>(null)
   const [error, setError] = useState(false)
+  const { playerId, ready } = useIdentity('deucert')
 
   useEffect(() => {
-    fetch('/api/reforco/available-topics')
+    if (!ready) return
+    fetch(`/api/reforco/available-topics?player_id=${playerId}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) setError(true)
         setTopics(data.topics ?? [])
       })
       .catch(() => setError(true))
-  }, [])
+  }, [ready, playerId])
 
   const countById = new Map((topics ?? []).map(t => [t.id, t.count]))
   const available = CHOOSABLE_SUPERTOPICS.filter(s => countById.has(s.id))
@@ -30,12 +33,14 @@ export default function ReforcoPicker() {
       </button>
 
       <h1 className="text-3xl font-black mb-1">🎯 Reforço</h1>
-      <p className="mb-8" style={{ color: 'var(--text-muted)' }}>Responda tudo, erros voltam até você acertar</p>
+      <p className="mb-8" style={{ color: 'var(--text-muted)' }}>Tópicos onde você ainda não acertou 100% — responda tudo, erros voltam até você acertar</p>
 
       {topics === null && !error && <p style={{ color: 'var(--text-muted)' }}>Carregando tópicos...</p>}
       {error && <p className="text-red-400">Não foi possível carregar os tópicos disponíveis.</p>}
       {topics !== null && available.length === 0 && !error && (
-        <p style={{ color: 'var(--text-muted)' }}>Nenhum tópico com perguntas disponível ainda.</p>
+        <p style={{ color: 'var(--text-muted)' }}>
+          Nenhum tópico pra reforçar por aqui — pratique um simulado ou responda alguma pergunta de reforço primeiro.
+        </p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
