@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useState, type FormEvent } from 'react'
-import { LogIn, UserPlus, LogOut, ShieldCheck } from 'lucide-react'
+import { LogIn, UserPlus, LogOut, ShieldCheck, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'reset'
 
 const MIGRATION_FLAG_PREFIX = 'progress_migrated_'
 
@@ -32,6 +32,7 @@ async function migrateProgress(accessToken: string, userId: string) {
 
 export function AuthPanel() {
   const [supabase] = useState(() => createClient())
+  const [expanded, setExpanded] = useState(false)
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -68,6 +69,29 @@ export function AuthPanel() {
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [lockedUntil])
+
+  async function handleResetSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setInfo(null)
+
+    if (!email.trim()) {
+      setError('Informe seu email.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/redefinir-senha`,
+      })
+      setInfo('Se esse email tiver uma conta, enviamos um link pra redefinir a senha.')
+    } catch {
+      setError('Não foi possível conectar. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -121,6 +145,13 @@ export function AuthPanel() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    setExpanded(false)
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setError(null)
+    setInfo(null)
   }
 
   if (checkingSession) return null
@@ -148,6 +179,17 @@ export function AuthPanel() {
     )
   }
 
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="mt-6 text-sm text-gray-500 hover:text-gray-300 underline transition-colors"
+      >
+        Já tem conta? Entrar ou criar conta
+      </button>
+    )
+  }
+
   const disabled = loading || remainingSec > 0
 
   return (
@@ -155,81 +197,135 @@ export function AuthPanel() {
       className="w-full max-w-2xl mt-6 rounded-3xl p-5 border"
       style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}
     >
-      <div className="flex gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => { setMode('login'); setError(null); setInfo(null) }}
-          className="flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
-          style={mode === 'login'
-            ? { background: 'linear-gradient(135deg, #00d4ff, #0066cc)', color: 'white' }
-            : { background: 'rgba(255,255,255,0.05)', color: '#9ca3af' }}
-        >
-          <LogIn size={16} /> Entrar
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMode('signup'); setError(null); setInfo(null) }}
-          className="flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
-          style={mode === 'signup'
-            ? { background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: 'white' }
-            : { background: 'rgba(255,255,255,0.05)', color: '#9ca3af' }}
-        >
-          <UserPlus size={16} /> Cadastrar
-        </button>
-      </div>
+      {mode === 'reset' ? (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold flex items-center gap-1.5"><KeyRound size={16} /> Redefinir senha</p>
+            <button type="button" onClick={() => switchMode('login')} className="text-xs text-gray-400 hover:text-white transition-colors">
+              ← Voltar
+            </button>
+          </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-        {mode === 'signup' && (
-          <input
-            type="text"
-            autoComplete="nickname"
-            value={nickname}
-            onChange={e => setNickname(e.target.value.slice(0, 20))}
-            placeholder="Nickname (aparece no ranking)"
-            disabled={disabled}
-            className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
-          />
-        )}
-        <input
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="seu@email.com"
-          disabled={disabled}
-          className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
-        />
-        <input
-          type="password"
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          placeholder={mode === 'signup' ? 'Crie uma senha (mín. 6 caracteres)' : 'Senha'}
-          disabled={disabled}
-          className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
-        />
+          <form onSubmit={handleResetSubmit} className="flex flex-col gap-2">
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              disabled={loading}
+              className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+            />
 
-        {error && (
-          <p className="text-xs text-red-400 px-1">
-            {error}
-            {remainingSec > 0 && ` (${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, '0')})`}
+            {error && <p className="text-xs text-red-400 px-1">{error}</p>}
+            {info && <p className="text-xs text-emerald-400 px-1">{info}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-2xl font-black text-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(135deg, #00d4ff, #0066cc)' }}
+            >
+              {loading ? 'Aguarde...' : 'Enviar link de redefinição'}
+            </button>
+          </form>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className="flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+              style={mode === 'login'
+                ? { background: 'linear-gradient(135deg, #00d4ff, #0066cc)', color: 'white' }
+                : { background: 'rgba(255,255,255,0.05)', color: '#9ca3af' }}
+            >
+              <LogIn size={16} /> Entrar
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('signup')}
+              className="flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+              style={mode === 'signup'
+                ? { background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: 'white' }
+                : { background: 'rgba(255,255,255,0.05)', color: '#9ca3af' }}
+            >
+              <UserPlus size={16} /> Cadastrar
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="px-3 rounded-xl text-sm text-gray-500 hover:text-gray-300 transition-all"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            {mode === 'signup' && (
+              <input
+                type="text"
+                autoComplete="nickname"
+                value={nickname}
+                onChange={e => setNickname(e.target.value.slice(0, 20))}
+                placeholder="Nickname (aparece no ranking)"
+                disabled={disabled}
+                className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+              />
+            )}
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              disabled={disabled}
+              className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+            />
+            <input
+              type="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder={mode === 'signup' ? 'Crie uma senha (mín. 6 caracteres)' : 'Senha'}
+              disabled={disabled}
+              className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+            />
+
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => switchMode('reset')}
+                className="self-end text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Esqueci minha senha
+              </button>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-400 px-1">
+                {error}
+                {remainingSec > 0 && ` (${Math.floor(remainingSec / 60)}:${String(remainingSec % 60).padStart(2, '0')})`}
+              </p>
+            )}
+            {info && <p className="text-xs text-emerald-400 px-1">{info}</p>}
+
+            <button
+              type="submit"
+              disabled={disabled}
+              className="w-full py-3 px-4 rounded-2xl font-black text-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: mode === 'login' ? 'linear-gradient(135deg, #00d4ff, #0066cc)' : 'linear-gradient(135deg, #a855f7, #7c3aed)' }}
+            >
+              {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+            </button>
+          </form>
+
+          <p className="text-xs text-gray-500 mt-3 text-center">
+            💾 Salve seu progresso para usar o app de qualquer dispositivo.
           </p>
-        )}
-        {info && <p className="text-xs text-emerald-400 px-1">{info}</p>}
-
-        <button
-          type="submit"
-          disabled={disabled}
-          className="w-full py-3 px-4 rounded-2xl font-black text-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ background: mode === 'login' ? 'linear-gradient(135deg, #00d4ff, #0066cc)' : 'linear-gradient(135deg, #a855f7, #7c3aed)' }}
-        >
-          {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
-        </button>
-      </form>
-
-      <p className="text-xs text-gray-500 mt-3 text-center">
-        💾 Salve seu progresso para usar o app de qualquer dispositivo.
-      </p>
+        </>
+      )}
     </div>
   )
 }
