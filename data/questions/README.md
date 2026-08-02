@@ -36,6 +36,7 @@ Coloque aqui os arquivos JSON de questões antes de executar o seed script.
 | `metricas_de_validacao`           | Métricas de Validação     |
 | `data_preparation`                | Preparação de Dados       |
 | `generative_ai`                   | IA Generativa             |
+| `az104`                           | AZ-104 (Azure Admin)      |
 
 ## Como executar o seed
 

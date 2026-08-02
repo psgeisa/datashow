@@ -21,6 +21,7 @@ const CATEGORY_META: Record<string, { icon: string; label: string; color: string
   data_eng:   { icon: '⚙️', label: 'Eng. de Dados',   color: '#10b981' },
   powerbi:    { icon: '📈', label: 'Power BI',         color: '#f97316' },
   azure:      { icon: '☁️', label: 'Azure',            color: '#60a5fa' },
+  az104:      { icon: '☁️', label: 'AZ-104',           color: '#0078d4' },
   databricks: { icon: '⚡', label: 'Databricks',       color: '#ff6b35' },
   meme:       { icon: '😂', label: 'Meme',             color: '#ec4899' },
 }

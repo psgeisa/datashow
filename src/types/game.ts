@@ -32,6 +32,7 @@ export type QuestionSuperTopic =
   | 'metricas_de_validacao'
   | 'data_preparation'
   | 'generative_ai'
+  | 'az104'
 
 export const CHOOSABLE_SUPERTOPICS: {
   id: QuestionSuperTopic
@@ -52,6 +53,7 @@ export const CHOOSABLE_SUPERTOPICS: {
   { id: 'metricas_de_validacao',         name: 'Métricas de Validação',      emoji: '📏', color: '#ef4444', description: 'AUC, KS, Precision, Recall, RMSE, MAE' },
   { id: 'data_preparation',              name: 'Preparação de Dados',        emoji: '🧹', color: '#14b8a6', description: 'Missings, outliers, encoding, PCA, feature selection' },
   { id: 'generative_ai',                 name: 'IA Generativa',              emoji: '✨', color: '#d946ef', description: 'LLMs, RAG, Embeddings, Prompt Engineering, RLHF' },
+  { id: 'az104',                         name: 'AZ-104 (Azure Admin)',       emoji: '☁️', color: '#0078d4', description: 'Identidades, redes, storage, VMs e monitoramento no Azure' },
 ]
 
 // ── Personagem ──────────────────────────────────────────────

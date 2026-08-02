@@ -93,6 +93,7 @@ const VALID_SUPERTOPICS = new Set([
   'metricas_de_validacao',
   'data_preparation',
   'generative_ai',
+  'az104',
 ])
 
 // ── Validar um objeto de questão ───────────────────────────────────────────

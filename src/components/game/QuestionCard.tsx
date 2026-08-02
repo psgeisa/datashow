@@ -15,7 +15,7 @@ const COLORS = ['#0080ff', '#a855f7', '#ff6b35', '#22c55e']
 
 const CATEGORY_ICONS: Record<string, string> = {
   sql: '🗃️', python: '🐍', ml: '🤖', stats: '📈',
-  powerbi: '📊', azure: '☁️', data_eng: '⚙️', databricks: '⚡', meme: '😂',
+  powerbi: '📊', azure: '☁️', az104: '☁️', data_eng: '⚙️', databricks: '⚡', meme: '😂',
 }
 
 export function QuestionCard({ question, onAnswer, answered, eliminatedOptions = [], peekData }: Props) {
