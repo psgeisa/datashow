@@ -1,4 +1,4 @@
-# DataShow 📊
+# KnowHow 📊
 
 Quiz show multiplayer de Data Science — SQL, Python, ML, BI, Azure, Databricks e mais.
 

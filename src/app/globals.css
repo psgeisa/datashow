@@ -116,3 +116,65 @@ body {
 .animate-telao-glow    { animation: telao-glow 3s ease-in-out infinite; }
 .animate-option-enter  { animation: option-enter 0.35s ease-out both; }
 .animate-cat-reveal    { animation: category-reveal 0.4s ease-out both; }
+
+/* ── /estudo (deucert portado) ──────────────────────────────
+   Escopado a .estudo-scope, nunca a :root/html — o resto do KnowHow
+   usa suas próprias --bg/--cyan etc. definidas acima, sem conflito. */
+.estudo-scope[data-theme='dark'] {
+  --bg: #0a0e14;
+  --bg-card: #12161f;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #e6edf3;
+  --text-muted: #7d8590;
+  --accent: #2dd4a7;
+  --accent-soft: rgba(45, 212, 167, 0.12);
+}
+.estudo-scope[data-theme='light'] {
+  --bg: #ffffff;
+  --bg-card: #f8fafc;
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --accent: #2dd4a7;
+  --accent-soft: rgba(45, 212, 167, 0.12);
+}
+.estudo-scope {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.estudo-bg-dots {
+  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@keyframes estudoBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.estudo-blinking-cursor { animation: estudoBlink 1s step-end infinite; }
+
+@keyframes estudoSlideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.estudo-animate-slide-up { animation: estudoSlideUp 0.3s ease-out; }
+
+@keyframes estudoCorrectBounce {
+  0% { transform: scale(1) translateY(0); }
+  30% { transform: scale(1.25) translateY(-10px); }
+  55% { transform: scale(0.95) translateY(3px); }
+  80% { transform: scale(1.08) translateY(-3px); }
+  100% { transform: scale(1) translateY(0); }
+}
+@keyframes estudoWrongShake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  15% { transform: translateX(-7px) rotate(-4deg); }
+  35% { transform: translateX(7px) rotate(4deg); }
+  55% { transform: translateX(-5px) rotate(-2deg); }
+  75% { transform: translateX(5px) rotate(2deg); }
+}
+.estudo-animate-correct { animation: estudoCorrectBounce 0.7s ease-out; }
+.estudo-animate-wrong { animation: estudoWrongShake 0.55s ease-out; }

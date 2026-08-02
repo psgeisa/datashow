@@ -471,7 +471,7 @@ export default function PlayPage() {
           /* ── Tela de seleção ─────────────────────────────────────────── */
           <div className="relative z-10 max-w-lg w-full text-center space-y-6 animate-slide-up">
             <div>
-              <p className="text-xs tracking-[0.3em] uppercase text-yellow-500/70 mb-1">DataShow</p>
+              <p className="text-xs tracking-[0.3em] uppercase text-yellow-500/70 mb-1">KnowHow</p>
               <p className="text-gray-500 text-xs">
                 Fase <span className="text-cyan-400 font-bold">{currentFase}</span> de {totalFases}
               </p>
@@ -610,7 +610,7 @@ export default function PlayPage() {
       <main className="relative min-h-screen flex flex-col items-center justify-center text-white overflow-hidden" style={studioBg} onClick={warmUpAudio}>
         <StudioLights />
         <div className="relative z-10 text-center space-y-4">
-          <HostCharacter pose="idle" speech="Bem-vindos ao DataShow!" size={80} />
+          <HostCharacter pose="idle" speech="Bem-vindos ao KnowHow!" size={80} />
           <p className="text-gray-400 animate-pulse text-sm cursor-pointer select-none mt-4">
             Aguardando o jogo iniciar...
           </p>
@@ -656,7 +656,7 @@ export default function PlayPage() {
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
         >
           <div className="text-xs font-black">
-            <span style={{ color: 'rgba(201,162,39,0.9)' }}>DataShow</span>
+            <span style={{ color: 'rgba(201,162,39,0.9)' }}>KnowHow</span>
             <span className="text-gray-600 mx-1.5">•</span>
             <span className="text-gray-400">Fase </span>
             <span className="text-cyan-400">{currentFase}</span>

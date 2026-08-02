@@ -32,7 +32,11 @@ const config: Config = {
         },
       },
       fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        // sans/mono com variável de fonte só ficam definidos dentro de
+        // /estudo (ver src/app/estudo/layout.tsx) — fora dali, caem no
+        // fallback de sempre (sem quebrar nada do resto do KnowHow).
+        sans: ['var(--font-manrope)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains-mono)', 'JetBrains Mono', 'Fira Code', 'monospace'],
       },
     },
   },

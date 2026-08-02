@@ -16,7 +16,7 @@ function buildPrompt(category: QuestionCategory, count: number): string {
     meme: 'Situações cotidianas engraçadas e dolorosamente reais do mundo de dados e tecnologia',
   }
 
-  return `Você é um game designer criando perguntas para um quiz show divertido e caótico sobre tecnologia de dados chamado DataShow.
+  return `Você é um game designer criando perguntas para um quiz show divertido e caótico sobre tecnologia de dados chamado KnowHow.
 
 CONTEXTO DA CATEGORIA: ${categoryContext[category]}
 
