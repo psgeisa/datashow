@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const topics = [...byTopic.entries()]
     .map(([topic, { correct, total }]) => ({ topic, correct, total, accuracy: correct / total }))
-    .sort((a, b) => a.accuracy - b.accuracy) // pior primeiro
+    .sort((a, b) => b.accuracy - a.accuracy) // melhor primeiro
 
   const total = rows?.length ?? 0
 

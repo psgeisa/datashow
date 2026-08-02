@@ -32,7 +32,7 @@ export function TopicAccuracyChart({ stats }: Props) {
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Ranking por tópico (piores primeiro)</p>
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-wide">Ranking por tópico</p>
           {topics.map((t, i) => {
             const pct = Math.round(t.accuracy * 100)
             const color = accuracyColor(t.accuracy)
