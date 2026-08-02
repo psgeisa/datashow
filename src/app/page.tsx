@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Rocket, Gamepad2, Target, BookOpenText, GraduationCap, ArrowRight } from 'lucide-react'
 import { getSoloPlayerId } from '@/lib/solo/identity'
 import { CHOOSABLE_SUPERTOPICS } from '@/types/game'
+import { AuthPanel } from '@/components/auth/AuthPanel'
 
 interface LastActivity {
   has_activity: boolean
@@ -77,7 +78,7 @@ export default function Home() {
             style={{ background: 'linear-gradient(135deg, #00d4ff, #0066cc)' }}
           >
             <GraduationCap size={20} strokeWidth={2} />
-            Estudar no deuCert
+            Estudar sozinho
             <ArrowRight size={18} strokeWidth={2} />
           </button>
         </div>
@@ -154,6 +155,8 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <AuthPanel />
 
       {/* Tech tags */}
       <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mt-10 mb-3">✦ Opções de Temas ✦</p>

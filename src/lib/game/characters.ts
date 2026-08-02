@@ -7,7 +7,7 @@ export const CHARACTERS: Character[] = [
     emoji: '🧪',
     color: '#00d4ff',
     role: 'Especialista em hipóteses e modelos',
-    ability_name: 'Hipótese',
+    ability_name: 'Hypothesis',
     ability_description: 'Elimina 2 alternativas erradas',
     ability_type: 'eliminate',
   },

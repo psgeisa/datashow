@@ -137,7 +137,7 @@ $$;
 INSERT INTO characters (slug, name, emoji, color, role, ability_name, ability_description, ability_type)
 VALUES
   ('data_scientist', 'Cientista de Dados', '🧪', '#00d4ff', 'Especialista em hipóteses e modelos',
-   'Hipótese', 'Elimina 2 alternativas erradas', 'eliminate'),
+   'Hypothesis', 'Elimina 2 alternativas erradas', 'eliminate'),
   ('data_engineer',  'Data Engineer',      '⚙️', '#ff6b35', 'Mestre dos pipelines de dados',
    'Pipeline',  'Pula uma pergunta sem penalidade', 'skip'),
   ('bi_analyst',     'Analista BI',         '📊', '#a855f7', 'Insights e dashboards estratégicos',
