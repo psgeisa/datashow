@@ -10,7 +10,7 @@ import { findOfficialExam } from '@/lib/deucert/exams'
 // grava o resumo final em deucert_simulado_results.
 export async function POST(req: NextRequest) {
   const {
-    player_id, exam_key, question_count, correct_count, time_taken_seconds, unresolved_question_ids,
+    player_id, exam_key, question_count, correct_count, time_taken_seconds, unresolved_question_ids, ended_early,
   } = await req.json() as {
     player_id: string
     exam_key: string
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     correct_count: number
     time_taken_seconds?: number
     unresolved_question_ids?: string[]
+    ended_early?: boolean
   }
 
   if (!player_id || !exam_key || typeof question_count !== 'number' || typeof correct_count !== 'number') {
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
     passing_score: passingScore,
     passed,
     time_taken_seconds: time_taken_seconds ?? null,
+    ended_early: ended_early ?? false,
   })
   if (resultError) console.error('[simulado/submit] falha ao gravar resultado:', resultError.message)
 

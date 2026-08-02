@@ -5,11 +5,37 @@ import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'login' | 'signup'
 
+const MIGRATION_FLAG_PREFIX = 'progress_migrated_'
+
+async function migrateProgress(accessToken: string, userId: string) {
+  const flagKey = `${MIGRATION_FLAG_PREFIX}${userId}`
+  if (localStorage.getItem(flagKey)) return
+
+  const solo_player_id = localStorage.getItem('datashow_solo_player_id') ?? undefined
+  const deucert_player_id = localStorage.getItem('deucert_player_id') ?? undefined
+  if (!solo_player_id && !deucert_player_id) {
+    localStorage.setItem(flagKey, '1')
+    return
+  }
+
+  try {
+    await fetch('/api/auth/migrate-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ solo_player_id, deucert_player_id }),
+    })
+    localStorage.setItem(flagKey, '1')
+  } catch {
+    // sem flag gravada — tenta de novo na próxima vez que a sessão for detectada
+  }
+}
+
 export function AuthPanel() {
   const [supabase] = useState(() => createClient())
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [nickname, setNickname] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
@@ -22,9 +48,11 @@ export function AuthPanel() {
     supabase.auth.getSession().then(({ data }) => {
       setUserEmail(data.session?.user?.email ?? null)
       setCheckingSession(false)
+      if (data.session) migrateProgress(data.session.access_token, data.session.user.id)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null)
+      if (session) migrateProgress(session.access_token, session.user.id)
     })
     return () => sub.subscription.unsubscribe()
   }, [supabase])
@@ -50,13 +78,21 @@ export function AuthPanel() {
       setError('Preencha email e senha.')
       return
     }
+    if (mode === 'signup' && !nickname.trim()) {
+      setError('Escolha um nickname.')
+      return
+    }
 
     setLoading(true)
     try {
       const res = await fetch(`/api/auth/${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          ...(mode === 'signup' ? { nickname: nickname.trim() } : {}),
+        }),
       })
       const data = await res.json()
 
@@ -75,6 +111,7 @@ export function AuthPanel() {
         setInfo('Conta criada! Confira seu email para confirmar antes de entrar.')
       }
       setPassword('')
+      setNickname('')
     } catch {
       setError('Não foi possível conectar. Tente novamente.')
     } finally {
@@ -142,6 +179,17 @@ export function AuthPanel() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        {mode === 'signup' && (
+          <input
+            type="text"
+            autoComplete="nickname"
+            value={nickname}
+            onChange={e => setNickname(e.target.value.slice(0, 20))}
+            placeholder="Nickname (aparece no ranking)"
+            disabled={disabled}
+            className="py-3 px-4 rounded-2xl bg-white/10 border border-white/20 text-sm focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+          />
+        )}
         <input
           type="email"
           autoComplete="email"

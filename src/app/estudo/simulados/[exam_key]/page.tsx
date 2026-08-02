@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/deucert/ThemeToggle'
 import { ExamQuestionCard, type QuestionOutcome, type QuestionOutcomeStatus } from '@/components/deucert/ExamQuestionCard'
 import { ExamProgressStrip } from '@/components/deucert/ExamProgressStrip'
-import { getPlayerId } from '@/lib/deucert/identity'
+import { useIdentity } from '@/lib/identity/useIdentity'
 import { findOfficialExam, buildGenericExamConfig, GENERIC_QUESTION_COUNT_OPTIONS } from '@/lib/deucert/exams'
 import { CHOOSABLE_SUPERTOPICS, type PublicQuestion } from '@/types/deucert'
 
@@ -70,9 +70,9 @@ export default function SimuladoSessao() {
 
   const official = findOfficialExam(examKey)
   const genericMeta = CHOOSABLE_SUPERTOPICS.find(s => s.id === examKey)
-  const playerId = getPlayerId()
+  const { playerId, ready } = useIdentity('deucert')
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (endedEarly = false) => {
     if (submittingRef.current || !examMeta) return
     submittingRef.current = true
     setPhase('submitting')
@@ -92,6 +92,7 @@ export default function SimuladoSessao() {
           correct_count: correctCount,
           time_taken_seconds: timeTaken,
           unresolved_question_ids: unresolvedIds,
+          ended_early: endedEarly,
         }),
       })
       const data: SubmitResult = await res.json()
@@ -162,6 +163,7 @@ export default function SimuladoSessao() {
   }, [phase])
 
   async function handleStart() {
+    if (!ready) return
     setPhase('loading')
     try {
       const res = await fetch('/api/simulado/start', {
@@ -319,14 +321,27 @@ export default function SimuladoSessao() {
 
       {(phase === 'running' || phase === 'submitting') && examMeta && questions[currentIndex] && (
         <div className="w-full space-y-6">
-          <div className="w-full max-w-2xl mx-auto flex items-center justify-between">
+          <div className="w-full max-w-2xl mx-auto flex items-center justify-between gap-3">
             <span className="font-bold">{examMeta.name}</span>
-            <span
-              className="font-mono font-black text-lg px-3 py-1 rounded-lg"
-              style={{ color: timeLow ? '#ef4444' : 'var(--accent)', background: timeLow ? 'rgba(239,68,68,0.1)' : 'var(--accent-soft)' }}
-            >
-              {minutes}:{seconds.toString().padStart(2, '0')}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className="font-mono font-black text-lg px-3 py-1 rounded-lg"
+                style={{ color: timeLow ? '#ef4444' : 'var(--accent)', background: timeLow ? 'rgba(239,68,68,0.1)' : 'var(--accent-soft)' }}
+              >
+                {minutes}:{seconds.toString().padStart(2, '0')}
+              </span>
+              {phase === 'running' && (
+                <button
+                  onClick={() => {
+                    if (confirm('Encerrar o simulado agora? As perguntas não respondidas contam como erradas.')) submit(true)
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg border transition-all hover:bg-white/5"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                >
+                  Encerrar
+                </button>
+              )}
+            </div>
           </div>
 
           <ExamProgressStrip

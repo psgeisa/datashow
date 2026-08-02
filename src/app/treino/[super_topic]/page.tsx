@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { CHOOSABLE_SUPERTOPICS } from '@/types/game'
 import type { SoloQuestion, SoloAnswerResult, SoloStats } from '@/types/solo'
-import { getSoloPlayerId } from '@/lib/solo/identity'
+import { useIdentity } from '@/lib/identity/useIdentity'
+import { authFetch } from '@/lib/supabase/authFetch'
 import { SoloQuestionCard } from '@/components/solo/SoloQuestionCard'
 import { TopicAccuracyChart } from '@/components/solo/TopicAccuracyChart'
 
-type Phase = 'loading' | 'answering' | 'revealed' | 'round-complete' | 'all-clear' | 'error'
+type Phase = 'loading' | 'answering' | 'revealed' | 'round-complete' | 'all-clear' | 'error' | 'ended'
 
 interface State {
   phase: Phase
@@ -51,12 +52,17 @@ export default function TreinoSessao() {
   const [state, setState] = useState<State>(INITIAL)
   const [stats, setStats] = useState<SoloStats | null>(null)
   const [showStats, setShowStats] = useState(false)
+  const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 })
+  const [finalScore, setFinalScore] = useState<number | null>(null)
 
-  const soloPlayerId = getSoloPlayerId()
+  const { playerId: soloPlayerId, ready } = useIdentity('solo')
   const submittingRef = useRef(false)
+  const sessionStartedAtRef = useRef(Date.now())
+  const endedRef = useRef(false)
 
   // Carrega a bateria completa uma única vez
   useEffect(() => {
+    if (!ready) return
     fetch(`/api/solo/start-battery?super_topic=${superTopic}`)
       .then(r => r.json())
       .then(data => {
@@ -70,10 +76,14 @@ export default function TreinoSessao() {
           roundQueue: fisherYates(data.questions),
           phase: 'answering',
         }))
+        setSessionStats({ correct: 0, total: 0 })
+        setFinalScore(null)
+        sessionStartedAtRef.current = Date.now()
+        endedRef.current = false
       })
       .catch(() => setState(s => ({ ...s, phase: 'error' })))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [superTopic])
+  }, [superTopic, ready])
 
   function fetchStats() {
     fetch(`/api/solo/stats?solo_player_id=${soloPlayerId}&super_topic=${superTopic}`)
@@ -82,8 +92,41 @@ export default function TreinoSessao() {
       .catch(() => {})
   }
 
+  async function endSession(endedEarly: boolean) {
+    if (endedRef.current) return
+    endedRef.current = true
+    try {
+      const res = await authFetch('/api/solo/end-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          solo_player_id: soloPlayerId,
+          super_topic: superTopic,
+          questions_answered: sessionStats.total,
+          correct_count: sessionStats.correct,
+          ended_early: endedEarly,
+          started_at: new Date(sessionStartedAtRef.current).toISOString(),
+        }),
+      })
+      const data = await res.json()
+      setFinalScore(data.score ?? sessionStats.correct * 100)
+    } catch {
+      setFinalScore(sessionStats.correct * 100)
+    }
+    if (endedEarly) setState(s => ({ ...s, phase: 'ended' }))
+  }
+
+  function handleEndEarly() {
+    if (confirm('Encerrar o treino agora? Sua pontuação é calculada com o que você já respondeu.')) {
+      endSession(true)
+    }
+  }
+
   useEffect(() => {
-    if (state.phase === 'all-clear') fetchStats()
+    if (state.phase === 'all-clear') {
+      fetchStats()
+      endSession(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase])
 
@@ -120,6 +163,10 @@ export default function TreinoSessao() {
           correct: s.roundStats.correct + (result.is_correct ? 1 : 0),
           total: s.roundStats.total + 1,
         },
+      }))
+      setSessionStats(s => ({
+        correct: s.correct + (result.is_correct ? 1 : 0),
+        total: s.total + 1,
       }))
     } finally {
       submittingRef.current = false
@@ -167,6 +214,10 @@ export default function TreinoSessao() {
       selectedIndex: null,
       lastResult: null,
     }))
+    setSessionStats({ correct: 0, total: 0 })
+    setFinalScore(null)
+    sessionStartedAtRef.current = Date.now()
+    endedRef.current = false
   }
 
   function toggleStats() {
@@ -186,11 +237,18 @@ export default function TreinoSessao() {
           ← Trocar tópico
         </button>
         <span className="text-sm font-bold">{meta?.emoji} {meta?.name ?? superTopic}</span>
-        {(state.phase === 'answering' || state.phase === 'revealed' || state.phase === 'round-complete') && (
-          <button onClick={toggleStats} className="text-sm text-gray-400 hover:text-white transition-colors">
-            📊 Progresso
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {(state.phase === 'answering' || state.phase === 'revealed' || state.phase === 'round-complete') && (
+            <>
+              <button onClick={toggleStats} className="text-sm text-gray-400 hover:text-white transition-colors">
+                📊 Progresso
+              </button>
+              <button onClick={handleEndEarly} className="text-sm text-gray-400 hover:text-red-400 transition-colors">
+                Encerrar
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {showStats && stats && (
@@ -252,6 +310,9 @@ export default function TreinoSessao() {
         <div className="text-center space-y-6 w-full max-w-md">
           <div className="text-6xl animate-bounce-in">🎉</div>
           <p className="text-2xl font-black">Rodada perfeita! Zero erros.</p>
+          {finalScore !== null && (
+            <p className="text-3xl font-black text-cyan-400">{finalScore.toLocaleString()} pts</p>
+          )}
 
           {stats && <TopicAccuracyChart stats={stats} />}
 
@@ -262,6 +323,34 @@ export default function TreinoSessao() {
               style={{ background: 'linear-gradient(135deg, #00d4ff, #a855f7)' }}
             >
               🔁 Treinar de novo
+            </button>
+            <button
+              onClick={() => router.push('/treino')}
+              className="w-full py-4 px-6 rounded-2xl font-black text-lg border border-white/20 hover:bg-white/10 transition-all"
+            >
+              Escolher outro tópico
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.phase === 'ended' && (
+        <div className="text-center space-y-6 w-full max-w-md">
+          <div className="text-6xl">🏁</div>
+          <p className="text-2xl font-black">Treino encerrado</p>
+          <p className="text-gray-400">
+            Você acertou {sessionStats.correct}/{sessionStats.total} pergunta{sessionStats.total === 1 ? '' : 's'}
+          </p>
+          {finalScore !== null && (
+            <p className="text-4xl font-black text-cyan-400">{finalScore.toLocaleString()} pts</p>
+          )}
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => router.push('/ranking')}
+              className="w-full py-4 px-6 rounded-2xl font-black text-lg hover:scale-105 active:scale-95 transition-all"
+              style={{ background: 'linear-gradient(135deg, #00d4ff, #a855f7)' }}
+            >
+              🏆 Ver Classificação Geral
             </button>
             <button
               onClick={() => router.push('/treino')}

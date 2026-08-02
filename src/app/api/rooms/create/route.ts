@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getUserIdFromRequest } from '@/lib/supabase/server'
 import { generateRoomCode } from '@/lib/game/scoring'
 import { nanoid } from 'nanoid'
 
@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
 
   const session_id = nanoid(21)
   const code = generateRoomCode()
+  const userId = await getUserIdFromRequest(req)
   const supabase = createServiceClient()
 
   const { data: room, error: roomErr } = await supabase
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       nickname: nickname.trim(),
       character_slug: character_slug ?? null,
       avatar_config: avatar_config ?? null,
+      user_id: userId,
     })
     .select()
     .single()

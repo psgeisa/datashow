@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { CHARACTERS } from '@/lib/game/characters'
 import { AvatarCustomizer, DEFAULT_AVATAR } from '@/components/game/AvatarCustomizer'
 import { warmUpAudio } from '@/lib/audio/context'
+import { authFetch } from '@/lib/supabase/authFetch'
 import type { CharacterSlug, AvatarConfig } from '@/types/game'
 
 function LobbyContent() {
@@ -33,7 +34,7 @@ function LobbyContent() {
         ? { nickname, character_slug: selectedChar, avatar_config: avatar }
         : { code, nickname, character_slug: selectedChar, avatar_config: avatar }
 
-      const res = await fetch(endpoint, {
+      const res = await authFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

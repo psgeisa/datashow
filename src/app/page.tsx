@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Rocket, Gamepad2, Target, BookOpenText, GraduationCap, ArrowRight } from 'lucide-react'
-import { getSoloPlayerId } from '@/lib/solo/identity'
+import { Rocket, Gamepad2, Target, BookOpenText, GraduationCap, ArrowRight, Trophy } from 'lucide-react'
+import { useIdentity } from '@/lib/identity/useIdentity'
 import { CHOOSABLE_SUPERTOPICS } from '@/types/game'
 import { AuthPanel } from '@/components/auth/AuthPanel'
 
@@ -21,15 +21,15 @@ export default function Home() {
   const [lastActivity, setLastActivity] = useState<LastActivity | null>(null)
 
   const techStack = ['SQL', 'Python', 'ML', 'Estatística', 'Power BI', 'Azure', 'Databricks', 'Data Eng']
+  const { playerId, ready } = useIdentity('solo')
 
   useEffect(() => {
-    const id = getSoloPlayerId()
-    if (!id) return
-    fetch(`/api/solo/last-activity?solo_player_id=${id}`)
+    if (!ready || !playerId) return
+    fetch(`/api/solo/last-activity?solo_player_id=${playerId}`)
       .then(r => r.json())
       .then(setLastActivity)
       .catch(() => {})
-  }, [])
+  }, [ready, playerId])
 
   const lastTopicMeta = lastActivity?.has_activity
     ? CHOOSABLE_SUPERTOPICS.find(t => t.id === lastActivity.super_topic)
@@ -157,6 +157,14 @@ export default function Home() {
       </div>
 
       <AuthPanel />
+
+      <button
+        onClick={() => router.push('/ranking')}
+        className="w-full max-w-2xl mt-3 py-3 px-4 rounded-2xl font-bold text-sm border border-white/10 hover:bg-white/5 transition-all duration-200 flex items-center justify-center gap-2 text-gray-300"
+      >
+        <Trophy size={18} strokeWidth={1.75} className="text-yellow-400" />
+        Ver Classificação Geral
+      </button>
 
       {/* Tech tags */}
       <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mt-10 mb-3">✦ Opções de Temas ✦</p>

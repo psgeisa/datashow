@@ -106,6 +106,12 @@ export default function ResultsPage() {
             🚀 Nova Partida
           </button>
           <button
+            onClick={() => router.push('/ranking')}
+            className="w-full py-3 rounded-2xl font-bold text-gray-400 border border-white/10 hover:bg-white/5 transition-all"
+          >
+            🏆 Ver Classificação Geral
+          </button>
+          <button
             onClick={() => router.push('/')}
             className="w-full py-3 rounded-2xl font-bold text-gray-400 border border-white/10 hover:bg-white/5 transition-all"
           >

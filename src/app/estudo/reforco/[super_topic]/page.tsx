@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/deucert/ThemeToggle'
 import { CHOOSABLE_SUPERTOPICS, type PublicQuestion, type AnswerResult, type TopicStats } from '@/types/deucert'
-import { getPlayerId } from '@/lib/deucert/identity'
+import { useIdentity } from '@/lib/identity/useIdentity'
 import { QuestionCard } from '@/components/deucert/QuestionCard'
 import { TopicAccuracyChart } from '@/components/deucert/TopicAccuracyChart'
 
@@ -52,9 +52,10 @@ export default function ReforcoSessao() {
   const [stats, setStats] = useState<TopicStats | null>(null)
   const [showStats, setShowStats] = useState(false)
   const submittingRef = useRef(false)
-  const playerId = getPlayerId()
+  const { playerId, ready } = useIdentity('deucert')
 
   useEffect(() => {
+    if (!ready) return
     fetch(`/api/reforco/start-battery?super_topic=${superTopic}`)
       .then(r => r.json())
       .then(data => {
@@ -66,7 +67,7 @@ export default function ReforcoSessao() {
       })
       .catch(() => setState(s => ({ ...s, phase: 'error' })))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [superTopic])
+  }, [superTopic, ready])
 
   function fetchStats() {
     fetch(`/api/reforco/stats?player_id=${playerId}&super_topic=${superTopic}`)

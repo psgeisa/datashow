@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getUserIdFromRequest } from '@/lib/supabase/server'
 import { nanoid } from 'nanoid'
 
 export async function POST(req: NextRequest) {
@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Código e nickname obrigatórios' }, { status: 400 })
   }
 
+  const userId = await getUserIdFromRequest(req)
   const supabase = createServiceClient()
 
   const { data: room, error: roomErr } = await supabase
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const { data: player, error: playerErr } = await supabase
     .from('players')
-    .insert({ room_id: room.id, session_id, nickname: nickname.trim(), character_slug: character_slug ?? null, avatar_config: avatar_config ?? null })
+    .insert({ room_id: room.id, session_id, nickname: nickname.trim(), character_slug: character_slug ?? null, avatar_config: avatar_config ?? null, user_id: userId })
     .select()
     .single()
 

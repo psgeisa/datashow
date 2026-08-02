@@ -44,6 +44,14 @@ export default function EstudoHome() {
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Treine até zerar os erros</p>
         </button>
       </div>
+
+      <button
+        onClick={() => router.push('/estudo/progresso')}
+        className="mt-6 text-sm underline"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        📈 Ver meu progresso por tópico
+      </button>
     </main>
   )
 }
